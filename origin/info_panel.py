@@ -9,6 +9,7 @@ from PIL import Image, ImageTk
 
 from util import ASSETS_DIR
 from view import ObjectivesView
+from interval_bar import IntervalBar
 
 
 class InfoPanel(tk.Frame):
@@ -58,6 +59,15 @@ class InfoPanel(tk.Frame):
             background="#ffffff",
             borderwidth=0,
         ).pack()
+        tk.Label(
+            companion,
+            text="COMPANION CHARGE",
+            background="#ffffff",
+            foreground="#344054",
+            font=("Segoe UI Semibold", 8),
+        ).pack(pady=(3, 1))
+        self.interval_bar = IntervalBar(companion, steps=6, width=110)
+        self.interval_bar.pack(fill=tk.X)
 
         # Keep both side columns compact so the status panel does not widen
         # the whole application and leave empty bands beside the square board.
@@ -98,3 +108,8 @@ class InfoPanel(tk.Frame):
 
     def set_objectives(self, objectives: Mapping[str, int]) -> None:
         self.objectives_view.set_objectives(objectives)
+
+    def set_companion_charge(self, charge: int, limit: int = 6) -> None:
+        if self.interval_bar.steps != limit:
+            self.interval_bar.steps = max(1, limit)
+        self.interval_bar.set_progress(charge)

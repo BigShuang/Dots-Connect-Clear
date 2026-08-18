@@ -1,4 +1,4 @@
-"""Core game model for the stage 0-5 Dots implementation."""
+"""Core model for Dots, companion abilities, and phased move resolution."""
 
 from __future__ import annotations
 
@@ -8,7 +8,8 @@ import random
 from typing import Iterable
 
 from cell import Cell, Position
-from dot import AbstractDot
+from companion import AbstractCompanion, EskimoCompanion
+from dot import AbstractDot, CompanionDot, SwirlDot
 from factory import DOT_KINDS, DotFactory
 from util import EventEmitter
 
@@ -27,6 +28,17 @@ class MoveResult:
     kind: str
     loop: bool
     score_gained: int
+
+
+@dataclass(slots=True)
+class PendingMove:
+    """Immutable-in-practice data carried through the four resolution phases."""
+
+    positions: list[Position]
+    kind: str
+    loop: bool
+    removed_counts: Counter[str]
+    companion_dots: int = 0
 
 
 class DotGrid:
@@ -96,10 +108,11 @@ class DotGrid:
             if (dot := self.dot_at(position)) is not None and dot.kind == kind
         ]
 
-    def remove_and_refill(self, positions: Iterable[Position]) -> None:
+    def remove(self, positions: Iterable[Position]) -> None:
         for position in set(positions):
             self.set_dot(position, None)
 
+    def fall(self) -> None:
         for column in range(self.columns):
             for segment in self._column_segments(column):
                 surviving = [
@@ -108,12 +121,22 @@ class DotGrid:
                     if self._cells[row][column].dot is not None
                 ]
                 missing = len(segment) - len(surviving)
-                column_dots = [
-                    self.factory.create_basic() for _ in range(missing)
-                ] + surviving
+                column_dots = [None] * missing + surviving
                 for row, dot in zip(segment, column_dots):
                     self._cells[row][column].dot = dot
+
+    def fill(self) -> None:
+        for position in self.positions():
+            cell = self.cell_at(position)
+            if not cell.blocked and cell.dot is None:
+                cell.dot = self.factory.create_basic()
         self.ensure_playable()
+
+    def remove_and_refill(self, positions: Iterable[Position]) -> None:
+        """Compatibility helper which performs all three board phases."""
+        self.remove(positions)
+        self.fall()
+        self.fill()
 
     def _column_segments(self, column: int) -> list[list[int]]:
         """Return contiguous playable row groups separated by blocked cells."""
@@ -198,6 +221,7 @@ class DotGame(EventEmitter):
         self.selection: list[Position] = []
         self.selection_kind: str | None = None
         self.selection_has_loop = False
+        self._pending_move: PendingMove | None = None
 
     @staticmethod
     def are_adjacent(first: Position, second: Position) -> bool:
@@ -235,10 +259,11 @@ class DotGame(EventEmitter):
         self.moves_remaining = self.starting_moves
         self.objectives = dict(self.starting_objectives)
         self.cancel_selection()
+        self._pending_move = None
         self.emit("reset")
 
     def start_selection(self, position: Position) -> bool:
-        if self.is_over or not self.grid.in_bounds(position):
+        if self.is_over or self.resolving or not self.grid.in_bounds(position):
             return False
         dot = self.grid.dot_at(position)
         if dot is None:
@@ -250,7 +275,7 @@ class DotGame(EventEmitter):
         return True
 
     def extend_selection(self, position: Position) -> bool:
-        if not self.selection or not self.grid.in_bounds(position):
+        if self.resolving or not self.selection or not self.grid.in_bounds(position):
             return False
         last = self.selection[-1]
         if position == last:
@@ -280,6 +305,23 @@ class DotGame(EventEmitter):
         return True
 
     def finish_selection(self) -> MoveResult | None:
+        """Resolve a move synchronously (useful for tests and non-GUI clients)."""
+        pending = self.begin_resolution()
+        if pending is None:
+            return None
+        self.activate_pending()
+        self.remove_pending()
+        self.fall_pending()
+        return self.fill_pending()
+
+    @property
+    def resolving(self) -> bool:
+        return self._pending_move is not None
+
+    def begin_resolution(self) -> PendingMove | None:
+        """Validate the selection and freeze everything needed by the move."""
+        if self._pending_move is not None:
+            return None
         unique_selection = set(self.selection)
         if len(unique_selection) < 2 or self.selection_kind is None:
             self.cancel_selection()
@@ -290,25 +332,78 @@ class DotGame(EventEmitter):
         removed_positions = (
             self.grid.positions_of_kind(kind) if loop else list(unique_selection)
         )
-        removed_counts = Counter(
+        removed_counts: Counter[str] = Counter(
             dot.kind
             for position in removed_positions
             if (dot := self.grid.dot_at(position)) is not None
         )
-        self.grid.remove_and_refill(removed_positions)
+        companion_dots = sum(
+            isinstance(self.grid.dot_at(position), CompanionDot)
+            for position in removed_positions
+        )
+        self._pending_move = PendingMove(
+            removed_positions, kind, loop, removed_counts, companion_dots
+        )
+        self._clear_selection()
+        return self._pending_move
+
+    def activate_pending(self) -> None:
+        pending = self._require_pending()
+        for position in pending.positions:
+            dot = self.grid.dot_at(position)
+            if isinstance(dot, SwirlDot):
+                self._activate_swirl(position, dot.kind)
+        self.emit("activate", tuple(pending.positions))
+
+    def remove_pending(self) -> None:
+        pending = self._require_pending()
+        self.grid.remove(pending.positions)
+        self.emit("remove", tuple(pending.positions))
+
+    def fall_pending(self) -> None:
+        self._require_pending()
+        self.grid.fall()
+        self.emit("fall")
+
+    def fill_pending(self) -> MoveResult:
+        pending = self._require_pending()
+        self.grid.fill()
         self.moves_remaining -= 1
-        score_gained = len(removed_positions) * 10
+        score_gained = len(pending.positions) * 10
         self.score += score_gained
-        for objective_kind, amount in removed_counts.items():
+        for objective_kind, amount in pending.removed_counts.items():
             if objective_kind in self.objectives:
                 self.objectives[objective_kind] = max(
                     0, self.objectives[objective_kind] - amount
                 )
-
-        result = MoveResult(len(removed_positions), kind, loop, score_gained)
-        self._clear_selection()
+        result = MoveResult(
+            len(pending.positions), pending.kind, pending.loop, score_gained
+        )
+        self._pending_move = None
+        self.emit("fill")
         self.emit("move_completed", result)
         return result
+
+    def abort_resolution(self) -> None:
+        """Clear an in-flight move so clients can always recover their input lock."""
+        self._pending_move = None
+        self.cancel_selection()
+
+    def _require_pending(self) -> PendingMove:
+        if self._pending_move is None:
+            raise RuntimeError("No move is being resolved")
+        return self._pending_move
+
+    def _activate_swirl(self, position: Position, kind: str) -> None:
+        row, column = position
+        for neighbour_row in range(row - 1, row + 2):
+            for neighbour_column in range(column - 1, column + 2):
+                neighbour = neighbour_row, neighbour_column
+                if neighbour == position or not self.grid.in_bounds(neighbour):
+                    continue
+                current = self.grid.dot_at(neighbour)
+                if current is not None:
+                    self.grid.set_dot(neighbour, self.factory.create_basic(kind))
 
     def cancel_selection(self) -> None:
         had_selection = bool(self.selection)
@@ -323,3 +418,47 @@ class DotGame(EventEmitter):
 
     def _contains_loop(self) -> bool:
         return len(self.selection) != len(set(self.selection))
+
+
+class CompanionGame(DotGame):
+    """A game whose companion dots charge an Eskimo companion."""
+
+    def __init__(
+        self,
+        *args: object,
+        companion: AbstractCompanion | None = None,
+        companion_dot_chance: float = 0.18,
+        **kwargs: object,
+    ) -> None:
+        self.companion = companion
+        self.companion_dot_chance = max(0.0, min(1.0, companion_dot_chance))
+        super().__init__(*args, **kwargs)
+        self.factory.companion_chance = self.companion_dot_chance
+        if self.companion is None:
+            self.companion = EskimoCompanion(rng=self.rng)
+        self._seed_companion_dots()
+
+    def _seed_companion_dots(self) -> None:
+        for position in self.grid.positions():
+            dot = self.grid.dot_at(position)
+            if dot is not None and self.rng.random() < self.companion_dot_chance:
+                self.grid.set_dot(position, self.factory.create_companion(dot.kind))
+
+    def activate_pending(self) -> None:
+        pending = self._require_pending()
+        for position in pending.positions:
+            dot = self.grid.dot_at(position)
+            if isinstance(dot, SwirlDot):
+                self._activate_swirl(position, dot.kind)
+        if self.companion is not None and pending.companion_dots:
+            activations = self.companion.add_charge(
+                pending.companion_dots, self.grid, pending.positions
+            )
+            self.emit("companion_changed", self.companion.charge, activations)
+        self.emit("activate", tuple(pending.positions))
+
+    def reset(self) -> None:
+        super().reset()
+        if self.companion is not None:
+            self.companion.reset()
+        self.emit("companion_changed", self.companion.charge if self.companion else 0, 0)

@@ -11,6 +11,7 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from factory import DOT_KINDS, DotFactory
+from dot import CompanionDot, SwirlDot
 
 
 class DotFactoryTest(unittest.TestCase):
@@ -29,6 +30,11 @@ class DotFactoryTest(unittest.TestCase):
     def test_unknown_explicit_kind_is_rejected(self) -> None:
         with self.assertRaises(ValueError):
             DotFactory().create_basic("turquoise")
+
+    def test_special_dot_factories_preserve_kind(self) -> None:
+        factory = DotFactory(rng=random.Random(4))
+        self.assertIsInstance(factory.create_companion("blue"), CompanionDot)
+        self.assertIsInstance(factory.create_swirl("gold"), SwirlDot)
 
 
 if __name__ == "__main__":

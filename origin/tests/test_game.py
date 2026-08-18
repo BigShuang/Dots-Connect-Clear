@@ -10,8 +10,9 @@ SRC = Path(__file__).resolve().parents[1]
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from dot import BasicDot
-from game import DotGame
+from companion import EskimoCompanion
+from dot import BasicDot, CompanionDot, SwirlDot
+from game import CompanionGame, DotGame
 
 
 class DotGameTest(unittest.TestCase):
@@ -121,6 +122,65 @@ class DotGameTest(unittest.TestCase):
         self.assertFalse(game.grid.has_available_connection())
         game.grid.ensure_playable()
         self.assertTrue(game.grid.has_available_connection())
+
+    def test_resolution_exposes_four_ordered_phases(self) -> None:
+        game = self.make_game()
+        self.set_kinds(game, [["blue"] * 3 for _ in range(3)])
+        events: list[str] = []
+        for event in ("activate", "remove", "fall", "fill"):
+            game.on(event, lambda *_args, event=event: events.append(event))
+        game.start_selection((0, 0))
+        game.extend_selection((0, 1))
+        self.assertIsNotNone(game.begin_resolution())
+        self.assertTrue(game.resolving)
+        self.assertFalse(game.start_selection((1, 0)))
+        game.activate_pending()
+        game.remove_pending()
+        self.assertIsNone(game.grid.dot_at((0, 0)))
+        game.fall_pending()
+        game.fill_pending()
+        self.assertEqual(events, ["activate", "remove", "fall", "fill"])
+        self.assertFalse(game.resolving)
+        self.assertEqual(game.moves_remaining, 2)
+
+    def test_swirl_recolours_all_valid_neighbours_during_activation(self) -> None:
+        game = self.make_game()
+        self.set_kinds(game, [["blue"] * 3 for _ in range(3)])
+        game.grid.set_dot((1, 1), SwirlDot("coral"))
+        game.grid.set_dot((1, 2), BasicDot("coral"))
+        game.start_selection((1, 1))
+        game.extend_selection((1, 2))
+        game.begin_resolution()
+        game.activate_pending()
+        self.assertEqual(game.grid.dot_at((0, 0)).kind, "coral")
+        self.assertEqual(game.grid.dot_at((2, 2)).kind, "coral")
+
+    def test_companion_dots_charge_and_activate_eskimo(self) -> None:
+        companion = EskimoCompanion(
+            charge_limit=2, swirl_count=2, rng=random.Random(11)
+        )
+        game = CompanionGame(
+            rows=3,
+            columns=3,
+            moves=3,
+            objective_amount=9,
+            rng=random.Random(7),
+            companion=companion,
+            companion_dot_chance=0,
+        )
+        self.set_kinds(game, [["blue"] * 3 for _ in range(3)])
+        game.grid.set_dot((0, 0), CompanionDot("blue"))
+        game.grid.set_dot((0, 1), CompanionDot("blue"))
+        game.start_selection((0, 0))
+        game.extend_selection((0, 1))
+        game.begin_resolution()
+        game.activate_pending()
+        self.assertEqual(companion.charge, 0)
+        swirls = sum(
+            isinstance(game.grid.dot_at(position), SwirlDot)
+            for position in game.grid.positions()
+        )
+        self.assertEqual(swirls, 2)
 
 
 if __name__ == "__main__":

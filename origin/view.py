@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import tkinter as tk
 from collections.abc import Callable, Mapping
+from pathlib import Path
 
 from PIL import Image, ImageTk
 
 from cell import Position
 from game import DotGame
+from dot import AbstractDot, CompanionDot, SwirlDot
 from util import ASSETS_DIR
 
 
@@ -18,6 +20,17 @@ DOT_COLOURS = {
     "gold": "#f9bf3b",
     "purple": "#493047",
 }
+
+
+def dot_asset_path(dot: AbstractDot) -> Path:
+    """Return the image for an implemented dot type and colour."""
+    if isinstance(dot, SwirlDot):
+        family = "swirl"
+    elif isinstance(dot, CompanionDot):
+        family = "companion"
+    else:
+        family = "basic"
+    return ASSETS_DIR / "dots" / family / f"{dot.kind}.png"
 
 
 class GridView(tk.Canvas):
@@ -37,8 +50,8 @@ class GridView(tk.Canvas):
         self.on_drag: Callable[[Position], None] | None = None
         self.on_release: Callable[[], None] | None = None
         self._last_drag_position: Position | None = None
-        self._dot_images: dict[tuple[str, int], ImageTk.PhotoImage] = {}
-        self._dot_source_images: dict[str, Image.Image] = {}
+        self._dot_images: dict[tuple[str, str, int], ImageTk.PhotoImage] = {}
+        self._dot_source_images: dict[tuple[str, str], Image.Image] = {}
         self.bind("<Button-1>", self._handle_press)
         self.bind("<B1-Motion>", self._handle_drag)
         self.bind("<ButtonRelease-1>", self._handle_release)
@@ -101,21 +114,30 @@ class GridView(tk.Canvas):
             self.create_image(
                 centre_x,
                 centre_y,
-                image=self._dot_image(dot.kind, diameter),
+                image=self._dot_image(dot, diameter),
             )
 
-    def _dot_image(self, kind: str, diameter: int) -> ImageTk.PhotoImage:
+    def _dot_image(self, dot: AbstractDot, diameter: int) -> ImageTk.PhotoImage:
         """Return a cached, high-quality resize of a repository PNG asset."""
-        key = kind, diameter
+        kind = dot.kind
+        family = (
+            "swirl"
+            if isinstance(dot, SwirlDot)
+            else "companion"
+            if isinstance(dot, CompanionDot)
+            else "basic"
+        )
+        key = family, kind, diameter
         cached = self._dot_images.get(key)
         if cached is not None:
             return cached
 
-        source = self._dot_source_images.get(kind)
+        source_key = family, kind
+        source = self._dot_source_images.get(source_key)
         if source is None:
-            asset_path = ASSETS_DIR / "dots" / "basic" / f"{kind}.png"
+            asset_path = dot_asset_path(dot)
             source = Image.open(asset_path).convert("RGBA")
-            self._dot_source_images[kind] = source
+            self._dot_source_images[source_key] = source
         smooth = source.resize(
             (diameter, diameter),
             resample=Image.Resampling.LANCZOS,
