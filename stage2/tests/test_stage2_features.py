@@ -115,6 +115,5 @@ class StageTwoFeatureTest(unittest.TestCase):
         self.assertTrue(any(isinstance(game.grid.dot_at(position), FlowerDot)
                             for position in game.grid.positions()))
 
-
 if __name__ == "__main__":
     unittest.main()

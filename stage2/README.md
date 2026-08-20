@@ -8,8 +8,10 @@ python stage2/a3.py
 ```
 
 Stage 2 extends the complete Stage 1 game with a polymorphic, weighted dot
-factory. The default board mixes `BasicDot`, `CompanionDot`, `FlowerDot`,
-`SwirlDot`, horizontal/vertical/cross beam dots, and `WildcardDot`.
+factory. The system supports `BasicDot`, `CompanionDot`, `FlowerDot`,
+`SwirlDot`, horizontal/vertical/cross beam dots, and `WildcardDot`; the GUI
+uses the small `starter_flower` combination by default to avoid visual and
+conceptual overload.
 
 `ShellDot`, `TurtleDot`, and `AnchorDot` are available as challenge types and
 can be added to `enabled_dot_types`. Shell and turtle need two range-effect
@@ -39,6 +41,31 @@ deliberately resolves one activation layer. Range effects remove or damage
 their targets but do not recursively activate other special dots. Recursive
 chains, moving balloons/butterflies, and target-selecting companions belong to
 Stage 3.
+
+## Recommended combinations
+
+Normal teaching runs should use only two or three Dot types. Open `game.py`
+and directly edit these two values:
+
+```python
+ENABLED_DOT_TYPES = [
+    (BasicDot, 88),
+    (FlowerDot, 12),
+]
+COMPANION_TYPE = None
+```
+
+| Dot types | Companion | Recommended use |
+| --- | --- | --- |
+| Basic, Flower | None | First activation override; easiest |
+| Basic, horizontal Beam, vertical Beam | None | Compare sibling subclasses |
+| Basic, Swirl, Wildcard | None | Board mutation and connection rules |
+| Basic, CompanionDot | Eskimo | First charge/composition exercise |
+| Basic, CompanionDot, Flower | Gardener | Compare interchangeable companions |
+| Basic, Flower, Shell | None | Mutable two-hit state |
+| Basic, horizontal Beam, Anchor | None | Post-gravity lifecycle hook |
+
+The same lists appear as comments beside the settings, ready to copy.
 
 Run the model tests with:
 

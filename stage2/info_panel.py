@@ -104,5 +104,10 @@ class InfoPanel(tk.Frame):
     def set_objectives(self, objectives: Mapping[str, int]) -> None:
         self.objectives_view.set_objectives(objectives)
 
-    def set_companion_charge(self, charge: int, limit: int = 6) -> None:
+    def set_companion_charge(
+        self, charge: int, limit: int = 6, enabled: bool = True
+    ) -> None:
+        for child in self.extension_area.winfo_children():
+            if isinstance(child, tk.Label):
+                child.configure(text="COMPANION CHARGE" if enabled else "NO COMPANION")
         self.interval_bar.set_progress(charge, limit)

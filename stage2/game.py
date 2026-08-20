@@ -6,8 +6,11 @@ import random
 from typing import Iterable, Iterator, List, Optional, Set
 
 from cell import Cell, Position
-from companion import AbstractCompanion, EskimoCompanion
-from dot import AbstractDot, AnchorDot, CompanionDot, DurableDot, WildcardDot
+from companion import AbstractCompanion, EskimoCompanion, GardenerCompanion
+from dot import (
+    AbstractDot, AnchorDot, BasicDot, CompanionDot, DurableDot, FlowerDot,
+    HorizontalBeamDot, ShellDot, SwirlDot, VerticalBeamDot, WildcardDot,
+)
 from factory import DOT_KINDS, DotFactory
 from util import EventEmitter
 
@@ -18,6 +21,26 @@ DEFAULT_OBJECTIVES = {
     "purple": 15,
     "gold": 10,
 }
+
+
+# Choose the dots used by the GUI here. Keep only 2-3 types.
+# The second number is the relative chance of creating that type.
+ENABLED_DOT_TYPES = [
+    (BasicDot, 88),
+    (FlowerDot, 12),
+]
+
+# Use None for no companion, EskimoCompanion, or GardenerCompanion.
+# When a companion is used, include CompanionDot above so it can charge.
+COMPANION_TYPE = None
+
+# Recommended combinations (copy one list into ENABLED_DOT_TYPES):
+# Beam:     [(BasicDot, 82), (HorizontalBeamDot, 9), (VerticalBeamDot, 9)]
+# Colour:   [(BasicDot, 80), (SwirlDot, 10), (WildcardDot, 10)]
+# Eskimo:   [(BasicDot, 82), (CompanionDot, 18)]
+# Gardener: [(BasicDot, 76), (CompanionDot, 16), (FlowerDot, 8)]
+# Shell:    [(BasicDot, 80), (FlowerDot, 12), (ShellDot, 8)]
+# Anchor:   [(BasicDot, 82), (HorizontalBeamDot, 10), (AnchorDot, 8)]
 
 
 @dataclass(frozen=True)
@@ -196,6 +219,7 @@ class DotGame(EventEmitter):
         blocked_positions: Optional[Iterable[Position]] = None,
         factory: Optional[DotFactory] = None,
         companion: Optional[AbstractCompanion] = None,
+        with_companion: Optional[bool] = None,
     ) -> None:
         super().__init__()
         self.rows = rows
@@ -203,8 +227,18 @@ class DotGame(EventEmitter):
         self.starting_moves = moves
         self.starting_objectives = dict(objectives or DEFAULT_OBJECTIVES)
         self.rng = rng if rng is not None else random.Random()
-        self.factory = factory if factory is not None else DotFactory(rng=self.rng)
-        self.companion = companion if companion is not None else EskimoCompanion(rng=self.rng)
+        self.factory = (
+            factory if factory is not None
+            else DotFactory(rng=self.rng, enabled_dot_types=ENABLED_DOT_TYPES)
+        )
+        if companion is not None:
+            self.companion = companion
+        elif with_companion is True:
+            self.companion = EskimoCompanion(rng=self.rng)
+        elif with_companion is False or COMPANION_TYPE is None:
+            self.companion = None
+        else:
+            self.companion = COMPANION_TYPE(rng=self.rng)
         self.blocked_positions = frozenset(
             self.default_blocked_positions(rows, columns)
             if blocked_positions is None
@@ -261,9 +295,14 @@ class DotGame(EventEmitter):
         self.cancel_selection()
         self.resolving = False
         self.anchors_collected = 0
-        self.companion.reset()
+        if self.companion is not None:
+            self.companion.reset()
         self.emit("reset")
-        self.emit("companion_changed", self.companion.charge, 0)
+        self.emit(
+            "companion_changed",
+            self.companion.charge if self.companion is not None else 0,
+            0,
+        )
 
     def start_selection(self, position: Position) -> bool:
         if self.is_over or self.resolving or not self.grid.in_bounds(position):
@@ -358,10 +397,12 @@ class DotGame(EventEmitter):
                 removed_counts[dot.kind] += 1
                 companion_dots += isinstance(dot, CompanionDot)
 
-        activations = self.companion.add_charge(
-            companion_dots, self.grid, activated_positions
-        )
-        if companion_dots:
+        activations = 0
+        if self.companion is not None:
+            activations = self.companion.add_charge(
+                companion_dots, self.grid, activated_positions
+            )
+        if companion_dots and self.companion is not None:
             self.emit("companion_changed", self.companion.charge, activations)
 
         self._clear_selection()

@@ -78,8 +78,11 @@ class DotsApp(tk.Frame):
         self.info_panel.set_score(self.game.score)
         self.info_panel.set_moves_remaining(self.game.moves_remaining)
         self.info_panel.set_objectives(self.game.objectives)
+        companion = self.game.companion
         self.info_panel.set_companion_charge(
-            self.game.companion.charge, self.game.companion.charge_limit
+            companion.charge if companion is not None else 0,
+            companion.charge_limit if companion is not None else 6,
+            enabled=companion is not None,
         )
 
     def new_game(self) -> None:
