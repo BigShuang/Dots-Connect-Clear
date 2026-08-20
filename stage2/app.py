@@ -1,4 +1,4 @@
-"""Application controller that connects the Stage 1 model and views."""
+"""Application controller for the Stage 2 polymorphic game."""
 
 import tkinter as tk
 from tkinter import messagebox
@@ -48,6 +48,7 @@ class DotsApp(tk.Frame):
         self.game.on("selection_changed", self.grid_view.redraw)
         self.game.on("move_completed", self._move_completed)
         self.game.on("reset", self._game_reset)
+        self.game.on("companion_changed", self._companion_changed)
 
     def start_connection(self, position: Position) -> None:
         self.game.start_selection(position)
@@ -67,12 +68,19 @@ class DotsApp(tk.Frame):
         self.grid_view.redraw()
         self.refresh_status()
 
+    def _companion_changed(self, _charge: int, _activations: int) -> None:
+        self.refresh_status()
+        self.grid_view.redraw()
+
     # TODO-CANDIDATE (Stage 1 — model/view coordination): students could
     # update all status widgets by using only the model's public attributes.
     def refresh_status(self) -> None:
         self.info_panel.set_score(self.game.score)
         self.info_panel.set_moves_remaining(self.game.moves_remaining)
         self.info_panel.set_objectives(self.game.objectives)
+        self.info_panel.set_companion_charge(
+            self.game.companion.charge, self.game.companion.charge_limit
+        )
 
     def new_game(self) -> None:
         self.game.reset()

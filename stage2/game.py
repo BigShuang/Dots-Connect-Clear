@@ -1,4 +1,4 @@
-"""Stage 1 board model and game rules."""
+"""Stage 2 board model, special-dot effects, and companion charging."""
 
 from collections import Counter
 from dataclasses import dataclass
@@ -6,7 +6,8 @@ import random
 from typing import Iterable, Iterator, List, Optional, Set
 
 from cell import Cell, Position
-from dot import AbstractDot
+from companion import AbstractCompanion, EskimoCompanion
+from dot import AbstractDot, AnchorDot, CompanionDot, DurableDot, WildcardDot
 from factory import DOT_KINDS, DotFactory
 from util import EventEmitter
 
@@ -101,6 +102,9 @@ class DotGrid:
         ]
         return [candidate for candidate in candidates if self.in_bounds(candidate)]
 
+    def is_blocked(self, position: Position) -> bool:
+        return self.cell_at(position).blocked
+
     def remove(self, positions: Iterable[Position]) -> None:
         for position in set(positions):
             self.set_dot(position, None)
@@ -146,7 +150,8 @@ class DotGrid:
                 continue
             for neighbour in self.neighbours(position):
                 other = self.dot_at(neighbour)
-                if other is not None and dot.can_connect(other):
+                if (other is not None and
+                        (dot.can_connect(other) or other.can_connect(dot))):
                     return True
         return False
 
@@ -160,12 +165,11 @@ class DotGrid:
             if position not in self.blocked_positions
         ]
         for first in playable:
-            first_dot = self.dot_at(first)
-            if first_dot is None:
-                continue
             for second in self.neighbours(first):
                 if second not in self.blocked_positions:
-                    self.set_dot(second, self.factory.create_dot(first_dot.kind))
+                    kind = self.factory.rng.choice(self.factory.kinds)
+                    self.set_dot(first, self.factory.create_basic(kind))
+                    self.set_dot(second, self.factory.create_basic(kind))
                     return
 
     def kinds(self) -> List[List[Optional[str]]]:
@@ -191,6 +195,7 @@ class DotGame(EventEmitter):
         rng: Optional[random.Random] = None,
         blocked_positions: Optional[Iterable[Position]] = None,
         factory: Optional[DotFactory] = None,
+        companion: Optional[AbstractCompanion] = None,
     ) -> None:
         super().__init__()
         self.rows = rows
@@ -199,6 +204,7 @@ class DotGame(EventEmitter):
         self.starting_objectives = dict(objectives or DEFAULT_OBJECTIVES)
         self.rng = rng if rng is not None else random.Random()
         self.factory = factory if factory is not None else DotFactory(rng=self.rng)
+        self.companion = companion if companion is not None else EskimoCompanion(rng=self.rng)
         self.blocked_positions = frozenset(
             self.default_blocked_positions(rows, columns)
             if blocked_positions is None
@@ -213,6 +219,7 @@ class DotGame(EventEmitter):
         self.selection_kind: Optional[str] = None
         self.selection_has_loop = False
         self.resolving = False
+        self.anchors_collected = 0
 
     @staticmethod
     def are_adjacent(first: Position, second: Position) -> bool:
@@ -253,16 +260,19 @@ class DotGame(EventEmitter):
         self.objectives = dict(self.starting_objectives)
         self.cancel_selection()
         self.resolving = False
+        self.anchors_collected = 0
+        self.companion.reset()
         self.emit("reset")
+        self.emit("companion_changed", self.companion.charge, 0)
 
     def start_selection(self, position: Position) -> bool:
         if self.is_over or self.resolving or not self.grid.in_bounds(position):
             return False
         dot = self.grid.dot_at(position)
-        if dot is None:
+        if dot is None or not dot.connectable:
             return False
         self.selection = [position]
-        self.selection_kind = dot.kind
+        self.selection_kind = None if isinstance(dot, WildcardDot) else dot.kind
         self.selection_has_loop = False
         self.emit("selection_changed")
         return True
@@ -277,13 +287,24 @@ class DotGame(EventEmitter):
         if len(self.selection) >= 2 and position == self.selection[-2]:
             self.selection.pop()
             self.selection_has_loop = len(self.selection) != len(set(self.selection))
+            self._refresh_selection_kind()
             self.emit("selection_changed")
             return True
 
         if not self.are_adjacent(previous, position):
             return False
         dot = self.grid.dot_at(position)
-        if dot is None or dot.kind != self.selection_kind:
+        if dot is None or not dot.connectable:
+            return False
+        if not isinstance(dot, WildcardDot):
+            if self.selection_kind is not None and dot.kind != self.selection_kind:
+                return False
+            if self.selection_kind is None:
+                self.selection_kind = dot.kind
+        previous_dot = self.grid.dot_at(previous)
+        if previous_dot is None or not (
+            previous_dot.can_connect(dot) or dot.can_connect(previous_dot)
+        ):
             return False
 
         if position in self.selection:
@@ -297,15 +318,18 @@ class DotGame(EventEmitter):
 
     def finish_selection(self) -> Optional[MoveResult]:
         unique_positions = set(self.selection)
-        if len(unique_positions) < 2 or self.selection_kind is None:
+        if len(unique_positions) < 2:
             self.cancel_selection()
             return None
 
         self.resolving = True
-        kind = self.selection_kind
+        kind = self.selection_kind or "wildcard"
         loop = self.selection_has_loop
         removed_positions = (
-            self.grid.positions_of_kind(kind) if loop else list(unique_positions)
+            (self.grid.positions_of_kind(kind) + [
+                position for position in self.grid.positions()
+                if isinstance(self.grid.dot_at(position), WildcardDot)
+            ]) if loop and self.selection_kind is not None else list(unique_positions)
         )
         activated_positions: Set[Position] = set(removed_positions)
         for position in removed_positions:
@@ -313,11 +337,32 @@ class DotGame(EventEmitter):
             if dot is not None:
                 activated_positions.update(dot.activate(self.grid, position))
 
+        # Obstacles take damage instead of being blindly removed by a range effect.
+        final_positions: Set[Position] = set()
+        for position in activated_positions:
+            if not self.grid.in_bounds(position) or self.grid.is_blocked(position):
+                continue
+            target = self.grid.dot_at(position)
+            if isinstance(target, DurableDot):
+                if target.take_hit():
+                    final_positions.add(position)
+            elif target is not None:
+                final_positions.add(position)
+        activated_positions = final_positions
+
         removed_counts = Counter()
+        companion_dots = 0
         for position in activated_positions:
             dot = self.grid.dot_at(position)
             if dot is not None:
                 removed_counts[dot.kind] += 1
+                companion_dots += isinstance(dot, CompanionDot)
+
+        activations = self.companion.add_charge(
+            companion_dots, self.grid, activated_positions
+        )
+        if companion_dots:
+            self.emit("companion_changed", self.companion.charge, activations)
 
         self._clear_selection()
         self.emit("selection_changed")
@@ -326,6 +371,7 @@ class DotGame(EventEmitter):
         self.emit("remove", tuple(activated_positions))
         self.grid.fall()
         self.emit("fall")
+        self._collect_landed_anchors()
         self.grid.fill()
         self.emit("fill")
 
@@ -352,3 +398,26 @@ class DotGame(EventEmitter):
         self.selection = []
         self.selection_kind = None
         self.selection_has_loop = False
+
+    def _refresh_selection_kind(self) -> None:
+        self.selection_kind = None
+        for position in self.selection:
+            dot = self.grid.dot_at(position)
+            if dot is not None and not isinstance(dot, WildcardDot):
+                self.selection_kind = dot.kind
+                break
+
+    def _collect_landed_anchors(self) -> None:
+        """Collect anchors at the bottom of their gravity segment."""
+        collected = []
+        for position in self.grid.positions():
+            if not isinstance(self.grid.dot_at(position), AnchorDot):
+                continue
+            row, column = position
+            below = (row + 1, column)
+            if row == self.grid.rows - 1 or self.grid.is_blocked(below):
+                collected.append(position)
+        if collected:
+            self.grid.remove(collected)
+            self.anchors_collected += len(collected)
+            self.emit("anchors_collected", self.anchors_collected)

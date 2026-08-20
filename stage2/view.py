@@ -23,6 +23,11 @@ DOT_COLOURS = {
 
 def dot_asset_path(dot: AbstractDot) -> Path:
     """Return the image path through the dot's stable public interface."""
+    if dot.asset_family in {"wildcard", "shell", "turtle", "anchor"}:
+        return ASSETS_DIR / "dots" / (dot.asset_family + ".png")
+    if dot.asset_family == "beam":
+        return (ASSETS_DIR / "dots" / "beam" / str(dot.asset_variant) /
+                (dot.kind + ".png"))
     return ASSETS_DIR / "dots" / dot.asset_family / (dot.kind + ".png")
 
 
@@ -43,8 +48,8 @@ class GridView(tk.Canvas):
         self.on_drag: Optional[Callable[[Position], None]] = None
         self.on_release: Optional[Callable[[], None]] = None
         self._last_drag_position: Optional[Position] = None
-        self._source_images: Dict[Tuple[str, str], Image.Image] = {}
-        self._dot_images: Dict[Tuple[str, str, int], ImageTk.PhotoImage] = {}
+        self._source_images: Dict[Tuple[str, str, str], Image.Image] = {}
+        self._dot_images: Dict[Tuple[str, str, str, int], ImageTk.PhotoImage] = {}
 
         self.bind("<Configure>", lambda _event: self.redraw())
         self.bind("<Button-1>", self._handle_press)
@@ -116,12 +121,13 @@ class GridView(tk.Canvas):
 
     def _dot_image(self, dot: AbstractDot, diameter: int) -> ImageTk.PhotoImage:
         family = dot.asset_family
-        cache_key = family, dot.kind, diameter
+        variant = str(dot.asset_variant or "")
+        cache_key = family, variant, dot.kind, diameter
         image = self._dot_images.get(cache_key)
         if image is not None:
             return image
 
-        source_key = family, dot.kind
+        source_key = family, variant, dot.kind
         source = self._source_images.get(source_key)
         if source is None:
             source = Image.open(dot_asset_path(dot)).convert("RGBA")

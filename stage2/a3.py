@@ -1,4 +1,4 @@
-"""Executable entry point for the Stage 1 game."""
+"""Executable entry point for the Stage 2 game."""
 
 import tkinter as tk
 
@@ -7,7 +7,7 @@ from app import DotsApp
 
 def main() -> None:
     root = tk.Tk()
-    root.title("Dots Connect & Clear — Stage 1")
+    root.title("Dots Connect & Clear — Stage 2")
     root.configure(background="#ffffff")
     root.minsize(540, 690)
 

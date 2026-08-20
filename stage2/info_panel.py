@@ -1,4 +1,4 @@
-"""The Stage 1 score, moves, mascot, and objectives panel."""
+"""Score, moves, objectives, and Stage 2 companion charge panel."""
 
 import tkinter as tk
 from collections.abc import Mapping
@@ -7,6 +7,7 @@ from PIL import Image, ImageTk
 
 from util import ASSETS_DIR
 from view import ObjectivesView
+from interval_bar import IntervalBar
 
 
 class InfoPanel(tk.Frame):
@@ -60,6 +61,11 @@ class InfoPanel(tk.Frame):
         # without changing the surrounding three-column layout.
         self.extension_area = tk.Frame(centre, background="#ffffff")
         self.extension_area.pack(fill=tk.X)
+        tk.Label(self.extension_area, text="COMPANION CHARGE",
+                 background="#ffffff", foreground="#344054",
+                 font=("Segoe UI Semibold", 8)).pack()
+        self.interval_bar = IntervalBar(self.extension_area, steps=6, width=106)
+        self.interval_bar.pack(pady=(2, 0))
 
         right = tk.Frame(self, width=190, height=140, background="#ffffff")
         right.grid(row=0, column=2)
@@ -97,3 +103,6 @@ class InfoPanel(tk.Frame):
 
     def set_objectives(self, objectives: Mapping[str, int]) -> None:
         self.objectives_view.set_objectives(objectives)
+
+    def set_companion_charge(self, charge: int, limit: int = 6) -> None:
+        self.interval_bar.set_progress(charge, limit)
