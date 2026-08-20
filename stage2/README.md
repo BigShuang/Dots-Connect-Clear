@@ -22,6 +22,13 @@ Companion dots charge an interchangeable `AbstractCompanion`. The default
 second implementation by creating a flower dot. Charge is displayed by the
 segmented `IntervalBar`.
 
+Stage 2 reuses the complete Stage 1 support-code animation contract: removed
+dots shrink, surviving dots fall smoothly, and replacements enter from above.
+The centre block does not split gravity into separate upper/lower generators;
+dots fall through its columns and are visually hidden while passing behind the
+foreground block. Special-dot and companion rules remain model concerns and
+use the same `begin/remove/fall/fill` phases.
+
 ## Configuration
 
 Pass registrations to `DotFactory` to change the board without editing the

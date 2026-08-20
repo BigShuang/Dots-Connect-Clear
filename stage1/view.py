@@ -3,7 +3,7 @@
 import tkinter as tk
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Callable, Dict, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Set, Tuple
 
 from PIL import Image, ImageTk
 
@@ -45,6 +45,9 @@ class GridView(tk.Canvas):
         self._last_drag_position: Optional[Position] = None
         self._source_images: Dict[Tuple[str, str], Image.Image] = {}
         self._dot_images: Dict[Tuple[str, str, int], ImageTk.PhotoImage] = {}
+        self._animation_job: Optional[str] = None
+        self._hidden_dot_ids: Set[int] = set()
+        self._animated_dots: List[Tuple[AbstractDot, float, float, float]] = []
 
         self.bind("<Configure>", lambda _event: self.redraw())
         self.bind("<Button-1>", self._handle_press)
@@ -107,12 +110,177 @@ class GridView(tk.Canvas):
 
         for position in self.game.grid.positions():
             dot = self.game.grid.dot_at(position)
-            if dot is None:
+            if dot is None or id(dot) in self._hidden_dot_ids:
                 continue
             x, y = self._centre(position, cell_size, left, top)
             radius = cell_size * (0.34 if position in selected else 0.31)
             diameter = max(2, round(radius * 2))
             self.create_image(x, y, image=self._dot_image(dot, diameter))
+
+        for dot, row, column, scale in self._animated_dots:
+            x, y = self._centre((row, column), cell_size, left, top)
+            diameter = max(2, round(cell_size * 0.62 * scale))
+            self.create_image(x, y, image=self._dot_image(dot, diameter))
+
+        # The centre block is a visual foreground overlay. Dots may move from
+        # its upper side to playable cells below, but are hidden while their
+        # animation path passes behind the block.
+        if self.game.grid.blocked_positions:
+            blocked_rows = [row for row, _column in self.game.grid.blocked_positions]
+            blocked_columns = [
+                column for _row, column in self.game.grid.blocked_positions
+            ]
+            first_row, last_row = min(blocked_rows), max(blocked_rows)
+            first_column, last_column = min(blocked_columns), max(blocked_columns)
+            self.create_rectangle(
+                left + first_column * cell_size,
+                top + first_row * cell_size,
+                left + (last_column + 1) * cell_size,
+                top + (last_row + 1) * cell_size,
+                fill="#fceee2",
+                outline="#495057",
+                width=2,
+            )
+
+        # Canvas has no general clipping region. Draw masks after every dot so
+        # replacement dots travelling from above are visible only inside the
+        # board, then redraw the outline as the topmost layer.
+        canvas_width = self.winfo_width()
+        canvas_height = self.winfo_height()
+        board_right = left + self.game.columns * cell_size
+        board_bottom = top + self.game.rows * cell_size
+        mask_options = {"fill": "#ffffff", "outline": ""}
+        self.create_rectangle(0, 0, canvas_width, top + 1, **mask_options)
+        self.create_rectangle(0, top, left + 1, board_bottom, **mask_options)
+        self.create_rectangle(
+            board_right - 1, top, canvas_width, board_bottom, **mask_options
+        )
+        self.create_rectangle(
+            0, board_bottom - 1, canvas_width, canvas_height, **mask_options
+        )
+        self.create_rectangle(
+            left,
+            top,
+            board_right,
+            board_bottom,
+            fill="",
+            outline="#495057",
+            width=2,
+        )
+
+    def snapshot(self) -> Dict[int, Tuple[AbstractDot, Position]]:
+        """Return dot identities and model positions for animation matching."""
+        return {
+            id(dot): (dot, position)
+            for position in self.game.grid.positions()
+            if (dot := self.game.grid.dot_at(position)) is not None
+        }
+
+    def cancel_animation(self) -> None:
+        if self._animation_job is not None:
+            self.after_cancel(self._animation_job)
+            self._animation_job = None
+        self._hidden_dot_ids.clear()
+        self._animated_dots.clear()
+        self.redraw()
+
+    def animate_removal(
+        self, positions: List[Position], on_complete: Callable[[], None]
+    ) -> None:
+        self.cancel_animation()
+        dots = [
+            (dot, position) for position in positions
+            if (dot := self.game.grid.dot_at(position)) is not None
+        ]
+        self._hidden_dot_ids = {id(dot) for dot, _position in dots}
+
+        def frame(progress: float) -> None:
+            scale = max(0.05, 1.0 - self._ease(progress))
+            self._animated_dots = [
+                (dot, position[0], position[1], scale)
+                for dot, position in dots
+            ]
+
+        self._animate(11, frame, on_complete)
+
+    def animate_fall(
+        self,
+        before: Dict[int, Tuple[AbstractDot, Position]],
+        on_complete: Callable[[], None],
+    ) -> None:
+        self.cancel_animation()
+        after = self.snapshot()
+        moving = []
+        for dot_id, (dot, start) in before.items():
+            if dot_id in after:
+                end = after[dot_id][1]
+                if start != end:
+                    moving.append((dot_id, dot, start, end))
+        self._hidden_dot_ids = {item[0] for item in moving}
+
+        def frame(progress: float) -> None:
+            eased = self._ease(progress)
+            self._animated_dots = [
+                (dot,
+                 start[0] + (end[0] - start[0]) * eased,
+                 start[1] + (end[1] - start[1]) * eased,
+                 1.0)
+                for _dot_id, dot, start, end in moving
+            ]
+
+        self._animate(18 if moving else 1, frame, on_complete)
+
+    def animate_fill(
+        self, previous_ids: Set[int], on_complete: Callable[[], None]
+    ) -> None:
+        self.cancel_animation()
+        after = self.snapshot()
+        entering = [
+            (dot_id, dot, position)
+            for dot_id, (dot, position) in after.items()
+            if dot_id not in previous_ids
+        ]
+        counts: Dict[int, int] = {}
+        for _dot_id, _dot, (_row, column) in entering:
+            counts[column] = counts.get(column, 0) + 1
+        self._hidden_dot_ids = {item[0] for item in entering}
+
+        def frame(progress: float) -> None:
+            eased = self._ease(progress)
+            self._animated_dots = []
+            for _dot_id, dot, (row, column) in entering:
+                start_row = row - counts[column]
+                current_row = start_row + (row - start_row) * eased
+                self._animated_dots.append((dot, current_row, column, 1.0))
+
+        self._animate(18 if entering else 1, frame, on_complete)
+
+    def _animate(
+        self, frames: int, draw_frame: Callable[[float], None],
+        on_complete: Callable[[], None],
+    ) -> None:
+        current = 0
+
+        def tick() -> None:
+            nonlocal current
+            progress = min(1.0, current / max(1, frames))
+            draw_frame(progress)
+            self.redraw()
+            if current >= frames:
+                self._animation_job = None
+                self._hidden_dot_ids.clear()
+                self._animated_dots.clear()
+                on_complete()
+                return
+            current += 1
+            self._animation_job = self.after(16, tick)
+
+        tick()
+
+    @staticmethod
+    def _ease(progress: float) -> float:
+        """Smoothstep: gentle start and finish without a physics dependency."""
+        return progress * progress * (3.0 - 2.0 * progress)
 
     def _dot_image(self, dot: AbstractDot, diameter: int) -> ImageTk.PhotoImage:
         family = dot.asset_family
@@ -144,7 +312,7 @@ class GridView(tk.Canvas):
 
     @staticmethod
     def _centre(
-        position: Position, cell_size: float, left: float, top: float
+        position: Tuple[float, float], cell_size: float, left: float, top: float
     ) -> Tuple[float, float]:
         row, column = position
         return (

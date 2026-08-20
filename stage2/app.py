@@ -17,6 +17,7 @@ class DotsApp(tk.Frame):
         super().__init__(master, background="#ffffff")
         self.master = master
         self.game = game if game is not None else DotGame()
+        self._input_locked = False
 
         self.info_panel = InfoPanel(self)
         self.info_panel.pack(fill=tk.X)
@@ -51,18 +52,40 @@ class DotsApp(tk.Frame):
         self.game.on("companion_changed", self._companion_changed)
 
     def start_connection(self, position: Position) -> None:
-        self.game.start_selection(position)
+        if not self._input_locked:
+            self.game.start_selection(position)
 
     def continue_connection(self, position: Position) -> None:
-        self.game.extend_selection(position)
+        if not self._input_locked:
+            self.game.extend_selection(position)
 
     def finish_connection(self) -> None:
-        self.game.finish_selection()
+        if self._input_locked:
+            return
+        pending = self.game.begin_resolution()
+        if pending is None:
+            return
+        self._input_locked = True
+        self.grid_view.animate_removal(pending.positions, self._after_removal)
+
+    def _after_removal(self) -> None:
+        self.game.remove_pending()
+        before_fall = self.grid_view.snapshot()
+        self.game.fall_pending()
+        self.grid_view.animate_fall(before_fall, self._after_fall)
+
+    def _after_fall(self) -> None:
+        previous_ids = set(self.grid_view.snapshot())
+        self.game.fill_pending()
+        self.grid_view.animate_fill(previous_ids, self._animation_complete)
+
+    def _animation_complete(self) -> None:
+        self._input_locked = False
+        self.grid_view.redraw()
+        self._show_result_if_needed()
 
     def _move_completed(self, _result: MoveResult) -> None:
-        self.grid_view.redraw()
         self.refresh_status()
-        self._show_result_if_needed()
 
     def _game_reset(self) -> None:
         self.grid_view.redraw()
@@ -70,7 +93,6 @@ class DotsApp(tk.Frame):
 
     def _companion_changed(self, _charge: int, _activations: int) -> None:
         self.refresh_status()
-        self.grid_view.redraw()
 
     # TODO-CANDIDATE (Stage 1 — model/view coordination): students could
     # update all status widgets by using only the model's public attributes.
@@ -86,6 +108,9 @@ class DotsApp(tk.Frame):
         )
 
     def new_game(self) -> None:
+        self.grid_view.cancel_animation()
+        self.game.abort_resolution()
+        self._input_locked = False
         self.game.reset()
 
     def confirm_exit(self) -> None:

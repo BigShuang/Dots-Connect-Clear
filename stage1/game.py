@@ -27,6 +27,16 @@ class MoveResult:
     score_gained: int
 
 
+@dataclass
+class PendingMove:
+    """Data kept while the GUI animates the resolution phases."""
+
+    positions: List[Position]
+    kind: str
+    loop: bool
+    removed_counts: Counter
+
+
 class DotGrid:
     """A rectangular board that owns cells and applies gravity."""
 
@@ -106,17 +116,23 @@ class DotGrid:
             self.set_dot(position, None)
 
     def fall(self) -> None:
-        """Move dots down within each segment separated by blocked cells."""
+        """Move dots down through every playable position in each column.
+
+        Blocked cells are holes/overlays, not shelves: a dot above the centre
+        block can continue into an empty playable cell below it.
+        """
         for column in range(self.columns):
-            for rows in self._open_segments(column):
-                dots = []
-                for row in rows:
-                    dot = self._cells[row][column].dot
-                    if dot is not None:
-                        dots.append(dot)
-                new_values = [None] * (len(rows) - len(dots)) + dots
-                for row, dot in zip(rows, new_values):
-                    self._cells[row][column].dot = dot
+            rows = [
+                row for row in range(self.rows)
+                if not self._cells[row][column].blocked
+            ]
+            dots = [
+                self._cells[row][column].dot for row in rows
+                if self._cells[row][column].dot is not None
+            ]
+            new_values = [None] * (len(rows) - len(dots)) + dots
+            for row, dot in zip(rows, new_values):
+                self._cells[row][column].dot = dot
 
     def fill(self) -> None:
         for position in self.positions():
@@ -124,20 +140,6 @@ class DotGrid:
             if not cell.blocked and cell.is_empty():
                 cell.dot = self.factory.create_dot()
         self.ensure_playable()
-
-    def _open_segments(self, column: int) -> List[List[int]]:
-        segments: List[List[int]] = []
-        current: List[int] = []
-        for row in range(self.rows):
-            if self._cells[row][column].blocked:
-                if current:
-                    segments.append(current)
-                    current = []
-            else:
-                current.append(row)
-        if current:
-            segments.append(current)
-        return segments
 
     def has_available_connection(self) -> bool:
         for position in self.positions():
@@ -213,6 +215,7 @@ class DotGame(EventEmitter):
         self.selection_kind: Optional[str] = None
         self.selection_has_loop = False
         self.resolving = False
+        self._pending_move: Optional[PendingMove] = None
 
     @staticmethod
     def are_adjacent(first: Position, second: Position) -> bool:
@@ -253,6 +256,7 @@ class DotGame(EventEmitter):
         self.objectives = dict(self.starting_objectives)
         self.cancel_selection()
         self.resolving = False
+        self._pending_move = None
         self.emit("reset")
 
     def start_selection(self, position: Position) -> bool:
@@ -296,6 +300,17 @@ class DotGame(EventEmitter):
         return True
 
     def finish_selection(self) -> Optional[MoveResult]:
+        """Resolve synchronously for tests and non-animated clients."""
+        if self.begin_resolution() is None:
+            return None
+        self.remove_pending()
+        self.fall_pending()
+        return self.fill_pending()
+
+    def begin_resolution(self) -> Optional[PendingMove]:
+        """Validate and freeze one move before its removal animation."""
+        if self._pending_move is not None:
+            return None
         unique_positions = set(self.selection)
         if len(unique_positions) < 2 or self.selection_kind is None:
             self.cancel_selection()
@@ -319,28 +334,54 @@ class DotGame(EventEmitter):
             if dot is not None:
                 removed_counts[dot.kind] += 1
 
+        self._pending_move = PendingMove(
+            list(activated_positions), kind, loop, removed_counts
+        )
         self._clear_selection()
         self.emit("selection_changed")
         self.emit("activate", tuple(activated_positions))
-        self.grid.remove(activated_positions)
-        self.emit("remove", tuple(activated_positions))
+        return self._pending_move
+
+    def remove_pending(self) -> None:
+        pending = self._require_pending()
+        self.grid.remove(pending.positions)
+        self.emit("remove", tuple(pending.positions))
+
+    def fall_pending(self) -> None:
+        self._require_pending()
         self.grid.fall()
         self.emit("fall")
+
+    def fill_pending(self) -> MoveResult:
+        pending = self._require_pending()
         self.grid.fill()
         self.emit("fill")
 
         self.moves_remaining -= 1
-        score_gained = len(activated_positions) * 10
+        score_gained = len(pending.positions) * 10
         self.score += score_gained
-        for objective_kind, amount in removed_counts.items():
+        for objective_kind, amount in pending.removed_counts.items():
             if objective_kind in self.objectives:
                 remaining = self.objectives[objective_kind] - amount
                 self.objectives[objective_kind] = max(0, remaining)
 
-        result = MoveResult(len(activated_positions), kind, loop, score_gained)
+        result = MoveResult(
+            len(pending.positions), pending.kind, pending.loop, score_gained
+        )
+        self._pending_move = None
         self.resolving = False
         self.emit("move_completed", result)
         return result
+
+    def abort_resolution(self) -> None:
+        self._pending_move = None
+        self.resolving = False
+        self.cancel_selection()
+
+    def _require_pending(self) -> PendingMove:
+        if self._pending_move is None:
+            raise RuntimeError("No move is being resolved")
+        return self._pending_move
 
     def cancel_selection(self) -> None:
         had_selection = bool(self.selection)

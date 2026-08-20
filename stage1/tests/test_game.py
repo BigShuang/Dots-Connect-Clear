@@ -41,6 +41,20 @@ class DotGameTest(unittest.TestCase):
         self.assertEqual(game.grid.blocked_positions, expected)
         self.assertTrue(all(game.grid.dot_at(position) is None for position in expected))
 
+    def test_dot_above_centre_block_falls_to_space_below_it(self) -> None:
+        game = DotGame(rows=8, columns=8, rng=random.Random(4))
+        column = 2
+        moving_dot = game.grid.dot_at((1, column))
+        game.grid.set_dot((7, column), None)
+
+        game.grid.fall()
+
+        self.assertIs(game.grid.dot_at((5, column)), moving_dot)
+        self.assertIsNone(game.grid.dot_at((0, column)))
+        self.assertTrue(
+            all(game.grid.dot_at((row, column)) is None for row in range(2, 5))
+        )
+
     def test_connection_updates_board_score_moves_and_objective(self) -> None:
         game = self.make_game()
         self.set_kinds(
@@ -69,6 +83,26 @@ class DotGameTest(unittest.TestCase):
         self.assertIsNone(game.finish_selection())
         self.assertEqual(game.moves_remaining, 3)
         self.assertEqual(game.score, 0)
+
+    def test_resolution_can_be_run_in_animation_phases(self) -> None:
+        game = self.make_game()
+        self.set_kinds(game, [["blue"] * 3 for _ in range(3)])
+        first = game.grid.dot_at((0, 0))
+        game.start_selection((0, 0))
+        game.extend_selection((0, 1))
+
+        pending = game.begin_resolution()
+        self.assertIsNotNone(pending)
+        self.assertIs(game.grid.dot_at((0, 0)), first)
+
+        game.remove_pending()
+        self.assertIsNone(game.grid.dot_at((0, 0)))
+        game.fall_pending()
+        result = game.fill_pending()
+
+        self.assertEqual(result.removed, 2)
+        self.assertEqual(game.moves_remaining, 2)
+        self.assertFalse(game.resolving)
 
     def test_dragging_back_one_position_backtracks(self) -> None:
         game = self.make_game()
