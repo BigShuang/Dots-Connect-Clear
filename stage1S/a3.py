@@ -12,8 +12,6 @@ def main() -> None:
     root.minsize(540, 690)
 
     # TODO 1.1 实例化 DotsApp 主应用，并添加到 Tkinter 根窗口，pack() 设置组件自动扩展，占满整个窗口区域
-    application = DotsApp(root)
-    application.pack(fill=tk.BOTH, expand=True)
 
     root.mainloop()
 
