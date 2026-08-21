@@ -19,28 +19,31 @@ class DotsApp(tk.Frame):
         self.game = game if game is not None else DotGame()
         self._input_locked = False
 
-        # TODO-STAGE1-1 (GUI composition): identify the two main child widgets
-        # of DotsApp, create them with the correct parent, and lay them out so
-        # the information panel stays above an expanding game board.  In the
-        # student starter, only these construction/layout statements should be
-        # replaced; the supplied game and animation code must remain intact.
+        # TODO 2.4 创建 InfoPanel 并将它放在应用顶部。
         self.info_panel = InfoPanel(self)
         self.info_panel.pack(fill=tk.X)
+
+        # TODO 1.2 使用 pack 设置 GridView 布局：
+        # 使棋盘区域占满窗口剩余空间，并在窗口缩放时保持自适应，同时设置合适的边距
         self.grid_view = GridView(self, self.game)
         self.grid_view.pack(fill=tk.BOTH, expand=True, padx=12, pady=(0, 12))
-
-        self._create_menu()
         self._bind_events()
+
+        # TODO 3.1 初始化 File 菜单，
+        self._create_menu()
+        # 注册窗口关闭协议和 New Game 快捷键。
         self.master.protocol("WM_DELETE_WINDOW", self.confirm_exit)
         self.master.bind("<Control-n>", lambda _event: self.new_game())
+
+        # 2.7 在 InfoPanel 创建完成后显示模型的初始状态。
         self.refresh_status()
+
         self.grid_view.redraw()
 
+    # TODO 3.2 创建 File 菜单，将菜单命令分别连接到 new_game 和 confirm_exit，
+    # 并把菜单栏设置到根窗口。本任务只练习菜单创建和回调绑定，不需要
+    # 重新实现已经提供的游戏重置逻辑。
     def _create_menu(self) -> None:
-        # TODO-STAGE1-4 (menu callbacks): create a File menu whose commands call
-        # new_game and confirm_exit, and attach it to the root window.  Keep the
-        # existing controller methods as support code; this task is about menu
-        # construction and callback wiring, not reimplementing game reset.
         menu_bar = tk.Menu(self.master)
         file_menu = tk.Menu(menu_bar, tearoff=False)
         file_menu.add_command(label="New Game", command=self.new_game, accelerator="Ctrl+N")
@@ -49,15 +52,14 @@ class DotsApp(tk.Frame):
         menu_bar.add_cascade(label="File", menu=file_menu)
         self.master.configure(menu=menu_bar)
 
-    # TODO-STAGE1-2 (event callbacks): connect the GridView press/drag/release
-    # callbacks to the controller, then subscribe redraw/status/reset handlers
-    # to the model events.  Do not add game rules here: each callback should
-    # delegate to one of the already supplied controller methods.
     def _bind_events(self) -> None:
+        # 将 GridView 的按下、拖动和释放回调连接到控制器方法，并让选择变化触发棋盘重绘。
         self.grid_view.on_press = self.start_connection
         self.grid_view.on_drag = self.continue_connection
         self.grid_view.on_release = self.finish_connection
         self.game.on("selection_changed", self.grid_view.redraw)
+
+        # 2.5 将回合完成和游戏重置事件连接到 InfoPanel 状态刷新流程。
         self.game.on("move_completed", self._move_completed)
         self.game.on("reset", self._game_reset)
 
@@ -103,27 +105,33 @@ class DotsApp(tk.Frame):
         self.grid_view.redraw()
         self.refresh_status()
 
-    # TODO-STAGE1-3 (model/view refresh): read score, moves_remaining and
-    # objectives from the model's public state and pass them to InfoPanel's
-    # setters.  This method must display state only and must not change it.
+    # TODO 2.6 更新游戏状态显示：
+    # 从 game 获取 score、moves_remaining 和 objectives 等状态信息，
+    # 并传递给 InfoPanel 对应方法进行显示更新
+    # 本方法只负责同步界面显示，不修改游戏状态
     def refresh_status(self) -> None:
         self.info_panel.set_score(self.game.score)
         self.info_panel.set_moves_remaining(self.game.moves_remaining)
         self.info_panel.set_objectives(self.game.objectives)
 
     def new_game(self) -> None:
+        # 3.3 实现 File > New Game 所需的重置操作，并确保未完成的动画和
+        # 结算状态不会带入新游戏。
         self.grid_view.cancel_animation()
         self.game.abort_resolution()
         self._input_locked = False
         self.game.reset()
 
+    # TODO 3.4 在销毁根窗口前使用对话框询问用户是否确认退出；用户选择 No 时，
+    # 应用程序必须继续运行。
     def confirm_exit(self) -> None:
-        # TODO-STAGE1-5 (dialog): ask the user to confirm before destroying the
-        # root window.  The application must remain open when the answer is No.
         if messagebox.askyesno("Exit", "Are you sure you want to quit?"):
             self.master.destroy()
 
+    # TODO 3.5 游戏结束后，根据模型的 won/lost 状态显示对应结果弹窗。
+    # 弹窗只负责通知结果，不能在这里重新判断目标或剩余步数规则。
     def _show_result_if_needed(self) -> None:
+
         if self.game.won:
             messagebox.showinfo("Game Over", "You completed every goal!")
         elif self.game.lost:

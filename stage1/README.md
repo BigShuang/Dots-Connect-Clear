@@ -13,10 +13,11 @@ Stage 1 includes the complete basic game, `DotsApp`, `InfoPanel`, menu and
 dialogs. It intentionally does not include `IntervalBar`, special dots,
 companions, or `ActionBar`.
 
-The comments marked `TODO-STAGE1-*` identify the proposed student exercises.
-They describe what a future starter version may ask students to complete, but
-do not remove any implementation, so this teacher version remains fully
-runnable. See `STAGE1_TASKS.md` for the task sheet and completion criteria.
+Only numbered comments beginning with `# TODO 1.x`, `# TODO 2.x`, or
+`# TODO 3.x` are student tasks. Other comments and docstrings explain supplied
+support code and are not implementation tasks. No implementation has been
+removed, so this teacher version remains fully runnable. See `STAGE1_TASKS.md`
+or `STAGE1_TASKS_ZH.md` for task details and completion criteria.
 
 The removal, gravity, and refill animations are complete teacher support code.
 Students are not expected to implement or call the animation controller. The

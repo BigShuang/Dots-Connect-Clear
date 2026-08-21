@@ -13,10 +13,6 @@ class InfoPanel(tk.Frame):
     """Display game information without reading or changing the model."""
 
     def __init__(self, master: tk.Misc) -> None:
-        # TODO-STAGE1-6 (InfoPanel layout — optional guided task): study the
-        # supplied labels and ObjectivesView, then reproduce the three-column
-        # moves/mascot/status layout using grid and pack.  Do not remove the
-        # extension_area: Stage 2 relies on this reserved integration point.
         super().__init__(
             master,
             background="#ffffff",
@@ -31,6 +27,10 @@ class InfoPanel(tk.Frame):
 
         left = tk.Frame(self, background="#ffffff")
         left.grid(row=0, column=0)
+
+        # TODO 2.1 创建并布局步数显示区域， 添加标题和数字标签，用于展示游戏当前剩余步数。
+        # 设置白色背景、黑色字体，font=("Segoe UI Semibold", size) 中 size 根据显示效果调整
+        # 使用 pack() 完成组件布局
         tk.Label(
             left,
             text="MOVES LEFT",
@@ -48,6 +48,7 @@ class InfoPanel(tk.Frame):
         )
         self._moves_label.pack()
 
+        # 中间放核心素材图片作为游戏界面标识
         centre = tk.Frame(self, background="#ffffff")
         centre.grid(row=0, column=1)
         source = Image.open(ASSETS_DIR / "pi.png").convert("RGB")
@@ -60,7 +61,7 @@ class InfoPanel(tk.Frame):
             borderwidth=0,
         ).pack()
 
-        # Stage 2 extension point: an IntervalBar can be packed in this frame
+        # Code for Stage 2 extension point: an IntervalBar can be packed in this frame
         # without changing the surrounding three-column layout.
         self.extension_area = tk.Frame(centre, background="#ffffff")
         self.extension_area.pack(fill=tk.X)
@@ -70,6 +71,9 @@ class InfoPanel(tk.Frame):
         right.pack_propagate(False)
         score_row = tk.Frame(right, background="#ffffff")
         score_row.pack(fill=tk.X, padx=(10, 0), pady=(0, 7))
+
+        # TODO 2.2 创建并布局分数信息：添加 SCORE 标题和数字标签，用于展示游戏当前得分
+        # 设置文字样式，并使用 pack() 将标签水平排列显示
         tk.Label(
             score_row,
             text="SCORE",
@@ -91,9 +95,7 @@ class InfoPanel(tk.Frame):
         self.objectives_view = ObjectivesView(right)
         self.objectives_view.pack(fill=tk.X, padx=(10, 0))
 
-    # TODO-STAGE1-7 (widget setters): update the supplied score and moves labels
-    # and delegate objective rendering to ObjectivesView.  These setters receive
-    # ready-to-display values and must not read from or modify DotGame directly.
+    # TODO 2.3 更新已经提供的分数与剩余步数Label
     def set_score(self, score: int) -> None:
         self._score_label.configure(text=str(score))
 
