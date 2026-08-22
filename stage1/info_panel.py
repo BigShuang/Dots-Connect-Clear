@@ -31,22 +31,6 @@ class InfoPanel(tk.Frame):
         # TODO 2.1 创建并布局步数显示区域， 添加标题和数字标签，用于展示游戏当前剩余步数。
         # 设置白色背景、黑色字体，font=("Segoe UI Semibold", size) 中 size 根据显示效果调整
         # 使用 pack() 完成组件布局
-        tk.Label(
-            left,
-            text="MOVES LEFT",
-            background="#ffffff",
-            foreground="#344054",
-            font=("Segoe UI Semibold", 10),
-        ).pack(pady=(0, 2))
-        self._moves_label = tk.Label(
-            left,
-            text="0",
-            width=3,
-            background="#ffffff",
-            foreground="#101828",
-            font=("Segoe UI Semibold", 48),
-        )
-        self._moves_label.pack()
 
         # 中间放核心素材图片作为游戏界面标识
         centre = tk.Frame(self, background="#ffffff")
@@ -74,33 +58,14 @@ class InfoPanel(tk.Frame):
 
         # TODO 2.2 创建并布局分数信息：添加 SCORE 标题和数字标签，用于展示游戏当前得分
         # 设置文字样式，并使用 pack() 将标签水平排列显示
-        tk.Label(
-            score_row,
-            text="SCORE",
-            background="#ffffff",
-            foreground="#344054",
-            font=("Segoe UI Semibold", 10),
-        ).pack(side=tk.LEFT, padx=(0, 8))
-        self._score_label = tk.Label(
-            score_row,
-            text="0",
-            width=6,
-            anchor="w",
-            background="#ffffff",
-            foreground="#187ffc",
-            font=("Segoe UI Semibold", 26),
-        )
-        self._score_label.pack(side=tk.LEFT)
-
+        
+        # Goal 目标信息：展示游戏当前要清除的 Dot 个数
         self.objectives_view = ObjectivesView(right)
         self.objectives_view.pack(fill=tk.X, padx=(10, 0))
 
     # TODO 2.3 更新已经提供的分数与剩余步数Label
-    def set_score(self, score: int) -> None:
-        self._score_label.configure(text=str(score))
-
-    def set_moves_remaining(self, moves: int) -> None:
-        self._moves_label.configure(text=str(moves))
+    # def set_score(self, score: int) -> None:
+    # def set_moves_remaining(self, moves: int) -> None:
 
     def set_objectives(self, objectives: Mapping[str, int]) -> None:
         self.objectives_view.set_objectives(objectives)
