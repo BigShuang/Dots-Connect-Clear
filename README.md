@@ -1,6 +1,10 @@
 # Dots Connect & Clear
 
-> 用一款连点消除小游戏，循序渐进地学习 Python、Tkinter 与面向对象编程。
+> **少儿编程趣味实践——消消乐游戏**
+>
+> 在连点消除游戏中，循序渐进地学习 Python、Tkinter 与面向对象编程。
+>
+> 本项目改编自澳大利亚昆士兰大学 2017 年本科编程实践项目。当前版本对原项目进行了适当简化，并提供完整的程序框架与丰富的支持代码，帮助初学者聚焦核心知识，轻松上手、逐步实践。
 
 ![Dots Connect & Clear 游戏演示](assets/animated/gameplay1_small.gif)
 
