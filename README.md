@@ -6,7 +6,14 @@
 >
 > 本项目改编自澳大利亚昆士兰大学 2017 年本科编程实践项目。当前版本对原项目进行了适当简化，并提供完整的程序框架与丰富的支持代码，帮助初学者聚焦核心知识，轻松上手、逐步实践。
 
-![Dots Connect & Clear 游戏演示](assets/animated/gameplay1_small.gif)
+Dots Connect & Clear 游戏效果演示
+<p align="center">
+  <img src="assets/animated/show_play1.gif" width="42%">
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="assets/animated/show_play2.gif" width="42%">
+</p>
+
 
 ## 项目简介
 
