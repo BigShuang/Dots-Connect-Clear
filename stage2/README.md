@@ -29,6 +29,11 @@ dots fall through its columns and are visually hidden while passing behind the
 foreground block. Special-dot and companion rules remain model concerns and
 use the same `begin/remove/fall/fill` phases.
 
+Stage 2 is built on the current Stage 1S foundation: the application startup,
+menu and shortcut handling, status panel, reset flow, confirmation dialog, and
+game-result dialogs keep the Stage 1S behaviour. Stage 2 adds its configurable
+dot system and companion UI on top of that shared flow.
+
 ## Configuration
 
 Pass registrations to `DotFactory` to change the board without editing the

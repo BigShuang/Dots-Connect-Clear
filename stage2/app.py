@@ -114,11 +114,23 @@ class DotsApp(tk.Frame):
         self.game.reset()
 
     def confirm_exit(self) -> None:
-        if messagebox.askyesno("Exit", "Are you sure you want to quit?"):
+        if messagebox.askyesno(
+            "Exit",
+            "Are you sure you want to quit?",
+            parent=self.master,
+        ):
             self.master.destroy()
 
     def _show_result_if_needed(self) -> None:
         if self.game.won:
-            messagebox.showinfo("Game Over", "You completed every goal!")
+            messagebox.showinfo(
+                "Game Over",
+                "You completed every goal!",
+                parent=self.master,
+            )
         elif self.game.lost:
-            messagebox.showinfo("Game Over", "No moves remain. Try again!")
+            messagebox.showinfo(
+                "Game Over",
+                "No moves remain. Try again!",
+                parent=self.master,
+            )

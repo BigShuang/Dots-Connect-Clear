@@ -28,6 +28,8 @@ class InfoPanel(tk.Frame):
 
         left = tk.Frame(self, background="#ffffff")
         left.grid(row=0, column=0)
+
+        # Stage 1S foundation: the moves display remains unchanged in Stage 2.
         tk.Label(
             left,
             text="MOVES LEFT",
@@ -72,6 +74,8 @@ class InfoPanel(tk.Frame):
         right.pack_propagate(False)
         score_row = tk.Frame(right, background="#ffffff")
         score_row.pack(fill=tk.X, padx=(10, 0), pady=(0, 7))
+
+        # Stage 1S foundation: keep the score display beside Stage 2 objectives.
         tk.Label(
             score_row,
             text="SCORE",
