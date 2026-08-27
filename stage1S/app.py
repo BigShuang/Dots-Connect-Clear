@@ -125,7 +125,11 @@ class DotsApp(tk.Frame):
     # TODO 3.4 在销毁根窗口前使用对话框询问用户是否确认退出；用户选择 No 时，
     # 应用程序必须继续运行。
     def confirm_exit(self) -> None:
-        if messagebox.askyesno("Exit", "Are you sure you want to quit?"):
+        if messagebox.askyesno(
+            "Exit",
+            "Are you sure you want to quit?",
+            parent=self.master,
+        ):
             self.master.destroy()
 
     # TODO 3.5 游戏结束后，根据模型的 won/lost 状态显示对应结果弹窗。
@@ -133,6 +137,14 @@ class DotsApp(tk.Frame):
     def _show_result_if_needed(self) -> None:
 
         if self.game.won:
-            messagebox.showinfo("Game Over", "You completed every goal!")
+            messagebox.showinfo(
+                "Game Over",
+                "You completed every goal!",
+                parent=self.master,
+            )
         elif self.game.lost:
-            messagebox.showinfo("Game Over", "No moves remain. Try again!")
+            messagebox.showinfo(
+                "Game Over",
+                "No moves remain. Try again!",
+                parent=self.master,
+            )
