@@ -34,6 +34,15 @@ class CompanionDot(BasicDot):
     asset_family = "companion"
 
 
+class StarDot(BasicDot):
+    """Remove every dot matching this star's colour."""
+
+    asset_family = "star"
+
+    def activate(self, grid: Any, position: Position) -> Set[Position]:
+        return set(grid.positions_of_kind(self.kind))
+
+
 class FlowerDot(AbstractDot):
     """Remove itself and its orthogonal neighbours."""
 
@@ -108,7 +117,7 @@ class WildcardDot(AbstractDot):
 
 
 class DurableDot(AbstractDot):
-    """A non-connectable obstacle requiring two range-effect hits."""
+    """A non-connectable obstacle which keeps mutable hit state."""
 
     connectable = False
     max_hits = 2
@@ -122,12 +131,19 @@ class DurableDot(AbstractDot):
         return self.hits_remaining <= 0
 
 
-class ShellDot(DurableDot):
-    asset_family = "shell"
-
-
 class TurtleDot(DurableDot):
-    asset_family = "turtle"
+    """Hide in its shell after one range hit, then disappear after another."""
+
+    @property
+    def asset_family(self) -> str:
+        return "turtle" if self.hits_remaining >= self.max_hits else "shell"
+
+
+class ShellDot(TurtleDot):
+    """A turtle which starts hidden and therefore needs only one more hit."""
+
+    def __init__(self, kind: str) -> None:
+        super().__init__(kind, hits_remaining=1)
 
 
 class AnchorDot(AbstractDot):

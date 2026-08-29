@@ -72,3 +72,23 @@ class GardenerCompanion(AbstractCompanion):
             position = self.rng.choice(available)
             current = grid.dot_at(position)
             grid.set_dot(position, FlowerDot(current.kind))
+
+
+class StarCompanion(AbstractCompanion):
+    """Turn one surviving dot into a same-colour StarDot when charged."""
+
+    def __init__(self, charge_limit: int = 6,
+                 rng: Optional[random.Random] = None) -> None:
+        super().__init__(charge_limit)
+        self.rng = rng if rng is not None else random.Random()
+
+    def activate(self, grid: Any, excluded: Iterable[Position] = ()) -> None:
+        excluded_set = set(excluded)
+        available = [position for position in grid.positions()
+                     if position not in excluded_set
+                     and (dot := grid.dot_at(position)) is not None
+                     and dot.connectable]
+        if available:
+            position = self.rng.choice(available)
+            current = grid.dot_at(position)
+            grid.set_dot(position, grid.factory.create_star(current.kind))

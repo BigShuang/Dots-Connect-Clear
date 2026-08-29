@@ -9,18 +9,21 @@ python stage2/a3.py
 
 Stage 2 extends the complete Stage 1 game with a polymorphic, weighted dot
 factory. The system supports `BasicDot`, `CompanionDot`, `FlowerDot`,
-`SwirlDot`, horizontal/vertical/cross beam dots, and `WildcardDot`; the GUI
-uses the small `starter_flower` combination by default to avoid visual and
-conceptual overload.
+`StarDot`, `SwirlDot`, horizontal/vertical/cross beam dots, and `WildcardDot`;
+the GUI uses the small Starter Flower configuration by default to avoid visual
+and conceptual overload.
 
-`ShellDot`, `TurtleDot`, and `AnchorDot` are available as challenge types and
-can be added to `enabled_dot_types`. Shell and turtle need two range-effect
-hits; anchors are collected after falling to the bottom of a gravity segment.
+`TurtleDot`, `ShellDot`, and `AnchorDot` are available as challenge types. A
+turtle changes to its shell appearance after one range-effect hit and is
+removed by the next hit. `ShellDot` starts in that second state and therefore
+needs one hit. Anchors are collected after falling to the bottom of a gravity
+segment.
 
-Companion dots charge an interchangeable `AbstractCompanion`. The default
-`EskimoCompanion` creates swirl dots; `GardenerCompanion` demonstrates a
-second implementation by creating a flower dot. Charge is displayed by the
-segmented `IntervalBar`.
+Companion dots charge an interchangeable `AbstractCompanion`.
+`StarCompanion` creates one same-colour star, and `EskimoCompanion` creates
+swirl dots. A star can only be created by its Companion in the teaching
+preset; it is not part of random refill. Charge is displayed by the segmented
+`IntervalBar`.
 
 Stage 2 reuses the complete Stage 1 support-code animation contract: removed
 dots shrink, surviving dots fall smoothly, and replacements enter from above.
@@ -56,8 +59,9 @@ Stage 3.
 
 ## Recommended combinations
 
-Normal teaching runs should use only two or three Dot types. Open `game.py`
-and directly edit these two values:
+Normal teaching runs should use only two or three Dot types. Open `config.py`,
+keep exactly one configuration block active, and edit the Dot classes and
+relative weights directly:
 
 ```python
 ENABLED_DOT_TYPES = [
@@ -67,17 +71,20 @@ ENABLED_DOT_TYPES = [
 COMPANION_TYPE = None
 ```
 
-| Dot types | Companion | Recommended use |
-| --- | --- | --- |
-| Basic, Flower | None | First activation override; easiest |
-| Basic, horizontal Beam, vertical Beam | None | Compare sibling subclasses |
-| Basic, Swirl, Wildcard | None | Board mutation and connection rules |
-| Basic, CompanionDot | Eskimo | First charge/composition exercise |
-| Basic, CompanionDot, Flower | Gardener | Compare interchangeable companions |
-| Basic, Flower, Shell | None | Mutable two-hit state |
-| Basic, horizontal Beam, Anchor | None | Post-gravity lifecycle hook |
+| Commented example | Dot types | Companion | Recommended use |
+| --- | --- | --- | --- |
+| Starter Flower (active) | Basic, Flower | None | First activation override; easiest |
+| Companion introduction | Basic, CompanionDot | Star | Star is Companion-only |
+| Beam family | Basic, horizontal, vertical, cross Beam | None | Compare sibling subclasses |
+| Colour rules | Basic, Swirl, Wildcard | None | Board mutation and connection rules |
+| Companion extension | Basic, CompanionDot | Eskimo | Companion creates Swirl dots |
+| Turtle and Shell states | Basic, Flower, Turtle, Shell | None | Compare both starting states |
+| Anchor lifecycle | Basic, horizontal Beam, Anchor | None | Post-gravity lifecycle hook |
 
-The same lists appear as comments beside the settings, ready to copy.
+All examples are complete commented code blocks ready to uncomment. Two final
+templates are deliberately left for student-designed Dot and Dot+Companion
+combinations. `game.py` imports the active values and remains focused on game
+rules.
 
 Run the model tests with:
 

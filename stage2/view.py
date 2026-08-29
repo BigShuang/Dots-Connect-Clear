@@ -20,6 +20,12 @@ DOT_COLOURS = {
     "purple": "#493047",
 }
 
+# Concave shapes have less visual mass than a circle at the same outer size.
+# Give stars a small view-only boost without changing board geometry or assets.
+DOT_DISPLAY_SCALES = {
+    "star": 1.25,
+}
+
 
 def dot_asset_path(dot: AbstractDot) -> Path:
     """Return the image path through the dot's stable public interface."""
@@ -119,12 +125,16 @@ class GridView(tk.Canvas):
                 continue
             x, y = self._centre(position, cell_size, left, top)
             radius = cell_size * (0.34 if position in selected else 0.31)
-            diameter = max(2, round(radius * 2))
+            display_scale = DOT_DISPLAY_SCALES.get(dot.asset_family, 1.0)
+            diameter = max(2, round(radius * 2 * display_scale))
             self.create_image(x, y, image=self._dot_image(dot, diameter))
 
         for dot, row, column, scale in self._animated_dots:
             x, y = self._centre((row, column), cell_size, left, top)
-            diameter = max(2, round(cell_size * 0.62 * scale))
+            display_scale = DOT_DISPLAY_SCALES.get(dot.asset_family, 1.0)
+            diameter = max(
+                2, round(cell_size * 0.62 * scale * display_scale)
+            )
             self.create_image(x, y, image=self._dot_image(dot, diameter))
 
         # Same foreground rule as Stage 1: dots can fall through the centre

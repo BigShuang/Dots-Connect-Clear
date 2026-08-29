@@ -6,10 +6,10 @@ import random
 from typing import Iterable, Iterator, List, Optional, Set
 
 from cell import Cell, Position
-from companion import AbstractCompanion, EskimoCompanion, GardenerCompanion
+from companion import AbstractCompanion, EskimoCompanion
+from config import COMPANION_TYPE, ENABLED_DOT_TYPES
 from dot import (
-    AbstractDot, AnchorDot, BasicDot, CompanionDot, DurableDot, FlowerDot,
-    HorizontalBeamDot, ShellDot, SwirlDot, VerticalBeamDot, WildcardDot,
+    AbstractDot, AnchorDot, CompanionDot, DurableDot, WildcardDot,
 )
 from factory import DOT_KINDS, DotFactory
 from util import EventEmitter
@@ -21,26 +21,6 @@ DEFAULT_OBJECTIVES = {
     "purple": 15,
     "gold": 10,
 }
-
-
-# Choose the dots used by the GUI here. Keep only 2-3 types.
-# The second number is the relative chance of creating that type.
-ENABLED_DOT_TYPES = [
-    (BasicDot, 88),
-    (FlowerDot, 12),
-]
-
-# Use None for no companion, EskimoCompanion, or GardenerCompanion.
-# When a companion is used, include CompanionDot above so it can charge.
-COMPANION_TYPE = None
-
-# Recommended combinations (copy one list into ENABLED_DOT_TYPES):
-# Beam:     [(BasicDot, 82), (HorizontalBeamDot, 9), (VerticalBeamDot, 9)]
-# Colour:   [(BasicDot, 80), (SwirlDot, 10), (WildcardDot, 10)]
-# Eskimo:   [(BasicDot, 82), (CompanionDot, 18)]
-# Gardener: [(BasicDot, 76), (CompanionDot, 16), (FlowerDot, 8)]
-# Shell:    [(BasicDot, 80), (FlowerDot, 12), (ShellDot, 8)]
-# Anchor:   [(BasicDot, 82), (HorizontalBeamDot, 10), (AnchorDot, 8)]
 
 
 @dataclass(frozen=True)

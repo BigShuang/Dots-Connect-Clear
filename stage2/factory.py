@@ -5,7 +5,8 @@ from typing import Optional, Sequence, Tuple, Type
 
 from dot import (
     AbstractDot, AnchorDot, BasicDot, CompanionDot, CrossBeamDot, FlowerDot,
-    HorizontalBeamDot, ShellDot, SwirlDot, TurtleDot, VerticalBeamDot, WildcardDot,
+    HorizontalBeamDot, ShellDot, StarDot, SwirlDot, TurtleDot, VerticalBeamDot,
+    WildcardDot,
 )
 
 DOT_KINDS = ("coral", "blue", "purple", "gold")
@@ -59,5 +60,8 @@ class DotFactory:
     def create_swirl(self, kind: Optional[str] = None) -> SwirlDot:
         return SwirlDot(self._kind(kind))
 
+    def create_star(self, kind: Optional[str] = None) -> StarDot:
+        return StarDot(self._kind(kind))
 
-CHALLENGE_DOT_TYPES = (ShellDot, TurtleDot, AnchorDot)
+
+CHALLENGE_DOT_TYPES = (TurtleDot, ShellDot, AnchorDot)
