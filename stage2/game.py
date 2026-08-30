@@ -410,9 +410,11 @@ class DotGame(EventEmitter):
 
     # TODO 2.1：统计最终移除位置中 CompanionDot 的数量。
     def count_companion_dots(self, positions) -> int:
+        # positions 已经是范围效果和耐久结算后的最终集合，只统计这里的对象。
         count = 0
         for position in positions:
             dot = self.grid.dot_at(position)
+            # isinstance 关注对象属于哪个 class，而不是它的颜色或图片名称。
             if isinstance(dot, CompanionDot):
                 count += 1
         return count

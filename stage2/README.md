@@ -26,6 +26,16 @@ randomly oriented same-colour beams. Companion-created special dots can be
 left out of random refill so their source is clear. Charge is displayed by the
 segmented `IntervalBar`.
 
+<p align="center">
+  <img src="../assets/dots/flower/blue.png" width="58" alt="FlowerDot">
+  <img src="../assets/dots/companion/blue.png" width="58" alt="CompanionDot">
+  <img src="../assets/dots/star/blue.png" width="58" alt="StarDot">
+  <img src="../assets/dots/swirl/blue.png" width="58" alt="SwirlDot">
+  <img src="../assets/dots/beam/cross/blue.png" width="58" alt="BeamDot">
+  <img src="../assets/dots/turtle.png" width="58" alt="TurtleDot">
+  <img src="../assets/dots/anchor.png" width="58" alt="AnchorDot">
+</p>
+
 Stage 2 reuses the complete Stage 1 support-code animation contract: removed
 dots shrink, surviving dots fall smoothly, and replacements enter from above.
 The centre block does not split gravity into separate upper/lower generators;
