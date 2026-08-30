@@ -1,396 +1,169 @@
-# Stage 2 Task Sheet — Special Dots and Companions
+# Stage 2 Task Sheet — Building Dots and Companions with Classes
 
-## 1. Stage 2 overview
+## 1. Learning path
 
-Stage 1 used only ordinary coloured dots. Stage 2 introduces two kinds of extension:
+Stage 2 keeps GUI, animation, gravity, scoring, and Factory code supplied.
+Students implement meaningful algorithms inside small classes and methods.
 
-- **special dots** live on the board and use different `activate` methods for range removal, recolouring or special connections;
-- a **Companion** lives outside the board, receives charge from removed `CompanionDot` objects, and creates special dots when fully charged.
-
-This stage focuses on inheritance, polymorphism and composition. The board, connections, scoring, gravity, refill, animation, image drawing and charge bar are supplied support code.
-
-The tasks progress in this order:
+Companion foundations come before every concrete Companion and its associated
+Dot. Each concrete pair is then completed as one runnable feature group:
 
 ```text
-Starter example 1: FlowerDot
-→ Starter example 2: CompanionDot + StarDot + StarCompanion
-→ Intermediate: Beams, Swirl + EskimoCompanion
-→ Advanced: Wildcard, durable obstacles and Anchor
+TODO 1.1  FlowerDot
+
+TODO 2.1  count removed CompanionDots
+TODO 2.2  AbstractCompanion.add_charge
+TODO 2.3  StarDot
+TODO 2.4  StarCompanion
+            ↓ run the first complete charge ability
+
+TODO 3.1  SwirlDot
+TODO 3.2  EskimoCompanion
+            ↓ run the second ability
+
+TODO 4.1  BeamDot
+TODO 4.2  CaptainCompanion
+            ↓ run the third ability
+
+TODO 5.1  TurtleDot state
+Extension 5.2  Anchor lifecycle
 ```
 
-> Image colours in this sheet are examples only. A special dot may appear in different colours in the game.
+Later tasks may depend on earlier tasks; earlier tasks never depend on later
+ones. Intermediate tasks use focused tests. Enable a feature group's GUI config
+only after both its Dot and Companion are complete.
 
-## 2. Supplied foundation
+- `TODO X`: students implement task X.
+- `For X`: complete code supplied to support task X.
 
-### 2.1 Common dot interface
+## 2. Supplied foundations
 
-<p align="center">
-  <img src="../assets/dots/basic/blue.png" alt="Blue Basic Dot" width="72">
-  &nbsp;&nbsp;
-  <img src="../assets/dots/basic/coral.png" alt="Coral Basic Dot" width="72">
-  &nbsp;&nbsp;
-  <img src="../assets/dots/basic/gold.png" alt="Gold Basic Dot" width="72">
-</p>
+All Dots inherit `AbstractDot` and provide `kind`, `connectable`,
+`asset_family`, and `activate(grid, position)`.
 
-`AbstractDot` and `BasicDot` are supplied. A basic dot affects only itself:
+Students may use `grid.rows`, `grid.columns`, `grid.in_bounds`,
+`grid.positions`, `grid.dot_at`, `grid.set_dot`, and `grid.is_blocked`.
+
+Factory is `For` code. Students call its single creation entry point:
 
 ```python
-class AbstractDot(ABC):
-    asset_family = "basic"
-    asset_variant: Optional[str] = None
-    connectable = True
-
-    def __init__(self, kind: str) -> None:
-        self.kind = kind
-
-    def can_connect(self, other: "AbstractDot") -> bool:
-        return self.connectable and other.connectable and self.kind == other.kind
-
-    def activate(self, grid: Any, position: Position) -> Set[Position]:
-        return {position}
-
-
-class BasicDot(AbstractDot):
-    pass
+grid.factory.create_dot(kind="blue", dot_type=StarDot)
+grid.factory.create_dot(kind="blue", dot_type=SwirlDot)
+grid.factory.create_dot(kind="blue", dot_type=BeamDot, direction="cross")
 ```
 
-A special dot normally begins with this template:
+## 3. Phase one — Special-Dot introduction
 
-```python
-class MySpecialDot(AbstractDot):
-    asset_family = "asset category"
+### TODO 1.1 — FlowerDot
 
-    def activate(self, grid: Any, position: Position) -> Set[Position]:
-        return {position}
-```
+In `FlowerDot.activate`, calculate up, down, left, and right with a loop. Use
+`grid.in_bounds` and return a set containing the Flower and valid neighbours.
+Do not call `grid.neighbours`; coordinate and boundary logic are the task.
 
-### 2.2 Relationship between Dot and Companion
+The active starter config displays this result immediately.
 
-A `CompanionDot` is a dot on the board. A `Companion` is an off-board helper owned by `DotGame`. They are not parent and child classes.
+## 4. Phase two — Companion foundations and the Star pair
+
+This first group builds the complete shared workflow:
 
 ```text
-Player removes CompanionDot
-→ DotGame counts it
-→ Companion gains charge
-→ full Companion activates
-→ a new special dot is created on the board
+remove CompanionDot → count it → gain charge → reset and activate
+→ StarCompanion creates StarDot → StarDot clears its colour
 ```
 
-Base charging, events and the charge bar are supplied. Students focus on what a Companion does when it becomes full.
+### TODO 2.1 — Count removed CompanionDots
 
-### 2.3 Available interfaces
+Implement `DotGame.count_companion_dots(positions)`. Traverse only final
+removal positions, use `isinstance(dot, CompanionDot)`, count matches, and
+return the count. Indirect removals must count; objects outside the final set
+must not. Verify it with its focused test.
 
-Code-marker convention: `TODO X` means students implement task X; `For X`
-means the code is already implemented to support task X.
+### TODO 2.2 — AbstractCompanion.add_charge
 
-```python
-grid.rows
-grid.columns
-grid.neighbours(position)
-grid.positions()
-grid.dot_at(position)
-grid.set_dot(position, dot)
-grid.factory.create_dot()
-grid.factory.create_dot(kind=kind, dot_type=BasicDot)
-grid.factory.create_dot(kind=kind, dot_type=SwirlDot)
-grid.factory.create_dot(kind=kind, dot_type=StarDot)
-```
+Add charge one point at a time. Whenever the limit is reached, reset to zero,
+call `activate(grid, excluded)`, and count the activation. Return the total
+activations. Tests use a small test double, so this task does not depend on a
+later concrete Companion.
 
-The Factory exposes one `create_dot` entry point. Weighted selection and
-ordinary construction are complete. The special Beam and Wildcard branches are
-marked `For 3.1` and `For Extension 4.1`; no separate `create_xxx` methods are
-needed.
+### TODO 2.3 — StarDot
 
-## 3. Starter example one — FlowerDot
+Traverse `grid.positions()`, read each Dot, compare its `kind` with
+`self.kind`, and collect all matching positions. Do not use
+`positions_of_kind`; iteration and filtering are the core algorithm.
 
-<p align="center">
-  <img src="../assets/dots/flower/blue.png" alt="Blue Flower Dot" width="92">
-</p>
+### TODO 2.4 — StarCompanion.activate
 
-A Flower removes itself and its immediate up, down, left and right neighbours. It does not affect diagonals.
+Collect surviving connectable Dots outside `excluded`, handle no candidates,
+choose one randomly, preserve its colour, and replace it with a Factory-created
+`StarDot`.
 
-### TODO 1.1 — Complete FlowerDot
+Now enable the `TODO 2.1–2.4` config. StarDot is created only by
+StarCompanion, making the complete feature chain visible.
 
-Students receive this scaffold:
+## 5. Phase three — The Swirl and Eskimo pair
 
-```python
-class FlowerDot(AbstractDot):
-    """Remove itself and its orthogonal neighbours."""
+### TODO 3.1 — SwirlDot
 
-    asset_family = "flower"
+Use two small loops to visit the eight surrounding cells. Skip the centre,
+out-of-bounds positions, empty cells, and non-connectable objects. Change each
+eligible Dot's `kind` and return only the Swirl position. Recolouring must
+preserve the neighbour's class.
 
-    def activate(self, grid: Any, position: Position) -> Set[Position]:
-        # TODO 1.1
-        # Use grid.neighbours(position) to get valid neighbours.
-        # Return a set containing this position and all neighbours.
-        pass
-```
+### TODO 3.2 — EskimoCompanion.activate
 
-**Check:**
+Select up to `swirl_count` eligible positions, preserve their colours, and
+replace them with Factory-created `SwirlDot` objects. Use all available
+candidates when fewer than requested exist.
 
-- the return value is a set;
-- a central Flower affects five positions;
-- a corner Flower affects only three positions;
-- supplied board and resolution code are unchanged.
+Enable the `TODO 3.1–3.2` config. Swirls are created only by EskimoCompanion.
 
-This task demonstrates a special dot without using a Companion.
+## 6. Phase four — The Beam and Captain pair
 
-## 4. Starter example two — CompanionDot, StarDot and StarCompanion
+### TODO 4.1 — BeamDot
 
-<p align="center">
-  <img src="../assets/dots/companion/purple.png" alt="Purple Companion Dot" width="92">
-  &nbsp;&nbsp;&nbsp;&nbsp;
-  <span>→ charge →</span>
-  &nbsp;&nbsp;&nbsp;&nbsp;
-  <img src="../assets/dots/star/purple.png" alt="Purple Star Dot" width="92">
-</p>
+Complete one simple class that stores `kind` and `direction`. Valid directions
+are `horizontal`, `vertical`, and `cross`; reject other values and set
+`asset_variant` to the direction. Use ordinary loops to return a row, column,
+or their union. Factory's `For 4.1` branch chooses a random direction when one
+is not supplied.
 
-This combination demonstrates how a dot and a Companion cooperate:
+### TODO 4.2 — CaptainCompanion.activate
 
-- `CompanionDot` lives on the board and connects like a basic dot of the same colour;
-- when actually removed, it provides one charge;
-- when full, `StarCompanion` changes one surviving dot into a same-colour `StarDot`;
-- when the player later connects the Star, it removes every dot of that colour.
+Select up to `beam_count` eligible positions. For each, preserve its colour,
+choose a valid direction, and create a `BeamDot` through Factory.
 
-Normal refill in this combination creates only `BasicDot` and `CompanionDot`. A `StarDot` never appears randomly and can only be created by `StarCompanion`, making the source of the charged effect unambiguous.
+Enable the `TODO 4.1–4.2` config. Beams are created only by CaptainCompanion.
 
-### TODO 2.1 — Complete CompanionDot
+## 7. Phase five — State and lifecycle extensions
 
-`CompanionDot` reuses the basic dot's activation behaviour:
+### TODO 5.1 — TurtleDot.take_hit
 
-```python
-class CompanionDot(BasicDot):
-    # TODO 2.1: set the correct asset category
-    asset_family = "..."
-```
+A Turtle starts non-connectable with two hits and the `turtle` image. The first
+range hit changes it to `shell` and returns `False`; the second returns `True`
+so Game removes it. Implement this in one class. `ShellDot` is a `For 5.1`
+reuse example. The matching config uses the already completed FlowerDot.
 
-### TODO 2.2 — Complete StarDot
+### Extension 5.2 — AnchorDot.has_landed
 
-A Star keeps a colour and participates in ordinary same-colour connections:
+Scan below the Anchor in its column. Return `False` if any playable position
+remains below; otherwise return `True`. Game asks the Anchor after gravity and
+collects it when it has landed.
 
-```python
-class StarDot(BasicDot):
-    asset_family = "star"
+## 8. For Extension example
 
-    def activate(self, grid: Any, position: Position) -> Set[Position]:
-        # TODO 2.2
-        # Return every position containing a dot of this colour.
-        pass
-```
-
-Use `grid.positions_of_kind(self.kind)`.
-
-### TODO 2.3 — Complete StarCompanion.activate
-
-`AbstractCompanion` already supplies charging and reset behaviour. Students complete only the Star Companion's full-charge effect:
-
-```python
-class StarCompanion(AbstractCompanion):
-    def activate(self, grid: Any,
-                 excluded: Iterable[Position] = ()) -> None:
-        # TODO 2.3
-        # 1. Find surviving, connectable dots outside excluded.
-        # 2. Randomly select one position.
-        # 3. Use grid.factory.create_dot to create a same-colour StarDot.
-        pass
-```
-
-`excluded` contains positions that will be removed in the current move, so the Companion must not select them.
-Candidate filtering is supplied by `available_positions`; students focus on
-selection and replacement.
-
-**Check:**
-
-- basic dots do not provide Companion charge;
-- each removed `CompanionDot` provides one charge;
-- the board does not receive a Companion effect before full charge;
-- Stars are never created by normal board refill;
-- full charge creates one Star matching the original dot's colour;
-- connecting a Star removes every dot of that colour;
-- the Companion does not modify a dot awaiting removal.
-
-## 5. Intermediate tasks — More dots and Companion combinations
-
-Complete class scaffolds are no longer supplied in this section. Students write the classes from the effect descriptions.
-
-### TODO 3.1 — One BeamDot with direction state
-
-<p align="center">
-  <img src="../assets/dots/beam/horizontal/blue.png" alt="Horizontal Beam" width="82">
-  &nbsp;&nbsp;&nbsp;
-  <img src="../assets/dots/beam/vertical/gold.png" alt="Vertical Beam" width="82">
-  &nbsp;&nbsp;&nbsp;
-  <img src="../assets/dots/beam/cross/purple.png" alt="Cross Beam" width="82">
-</p>
-
-Implement one `BeamDot` class and pass its direction in as object state:
-
-- use `asset_family = "beam"`;
-- accept `kind` and `direction` in the constructor;
-- allow only `"horizontal"`, `"vertical"`, or `"cross"`;
-- raise `ValueError` for an invalid direction;
-- expose the direction through a read-only `asset_variant` property;
-- return the entire row for horizontal, the entire column for vertical, and
-  their union for cross.
-
-`BeamDot` must not choose a random direction internally. Random refill uses
-the supplied `DotFactory.create_dot` and its RNG; callers that need a specific
-direction pass it explicitly. This keeps each Beam deterministic and preserves
-repeatable seeded Factory results.
-
-The Beam branch in Factory is marked `For 3.1`. Students implement only the
-`BeamDot` direction state, validation, and activation range marked `TODO 3.1`.
-
-**Check:** on an 8×8 board, the horizontal and vertical Beams affect eight positions each, while the Cross Beam affects 15 different positions.
-
-### TODO 3.2 — SwirlDot
-
-<p align="center">
-  <img src="../assets/dots/swirl/coral.png" alt="Coral Swirl Dot" width="92">
-</p>
-
-When a `SwirlDot` activates:
-
-1. inspect all eight surrounding cells, including diagonals;
-2. skip itself, empty cells and non-connectable obstacles;
-3. replace valid neighbours with `BasicDot` objects matching the Swirl's colour;
-4. return only the Swirl's own position.
-
-**Check:** only valid surrounding dots are changed, and only the Swirl itself is removed.
-
-### TODO 3.3 — EskimoCompanion
-
-<p align="center">
-  <img src="../assets/dots/companion/blue.png" alt="Blue Companion Dot" width="82">
-  &nbsp;&nbsp;&nbsp;&nbsp;
-  <span>→ charge →</span>
-  &nbsp;&nbsp;&nbsp;&nbsp;
-  <img src="../assets/dots/swirl/blue.png" alt="Blue Swirl Dot" width="92">
-</p>
-
-Implement `EskimoCompanion.activate`:
-
-- use the supplied `available_positions` helper to obtain candidates;
-- randomly select at most `swirl_count` positions;
-- replace each with a `SwirlDot` matching the original dot's colour;
-- if too few candidates exist, convert only the available candidates without raising an error.
-
-This combination demonstrates that the same `CompanionDot` can charge interchangeable Companions, while each Companion creates a different special dot.
-
-### TODO 3.4 — BuffaloCompanion
-
-Implement `BuffaloCompanion.activate`:
-
-- use the supplied `available_positions` helper to obtain candidates;
-- randomly select at most `wildcard_count` positions;
-- replace them with `WildcardDot` objects using
-  `grid.factory.create_dot(dot_type=WildcardDot)`;
-- if too few candidates exist, convert only those available.
-
-A `WildcardDot` has no fixed colour, so it does not preserve the colour of the
-dot it replaces. Positions awaiting removal must remain excluded.
-
-### TODO 3.5 — CaptainCompanion
-
-Implement `CaptainCompanion.activate`:
-
-- use the supplied `available_positions` helper to obtain candidates;
-- randomly select at most `beam_count` positions;
-- choose `"horizontal"`, `"vertical"`, or `"cross"` randomly for each position;
-- use the shared `grid.factory.create_dot` with `BeamDot`, the colour, and the
-  selected direction;
-- if too few candidates exist, convert only those available.
-
-Buffalo and Captain replace only surviving dots. They do not directly remove
-positions or modify animation, scoring, gravity, or the shared resolution flow.
-
-## 6. Advanced extensions
-
-### Extension 4.1 — WildcardDot
-
-<p align="center">
-  <img src="../assets/dots/wildcard.png" alt="Wildcard Dot" width="92">
-</p>
-
-A Wildcard has no fixed colour and may connect to any connectable dot. Create `WildcardDot`, use `"wildcard"` as its default `kind`, and override `can_connect(other)`.
-
-Connection-colour selection, backtracking and loop rules are supplied.
-
-### Extension 4.2 — ShellDot and TurtleDot
-
-<p align="center">
-  <img src="../assets/dots/shell.png" alt="Shell Dot" width="92">
-  &nbsp;&nbsp;&nbsp;&nbsp;
-  <img src="../assets/dots/turtle.png" alt="Turtle Dot" width="92">
-</p>
-
-A Turtle is a non-connectable, two-stage durable obstacle. The first range-effect hit makes it hide and change from the Turtle image to the Shell image. The second hit removes it. `ShellDot` represents a Turtle which starts hidden, so it needs only one more hit.
-
-First create a shared `DurableDot` parent:
-
-- set `connectable = False`;
-- use a maximum durability of two;
-- store remaining durability in the constructor;
-- make `take_hit()` reduce durability and return whether removal is now required.
-
-Then implement `TurtleDot` so its remaining durability dynamically selects the `"turtle"` or `"shell"` asset family. Finally, derive `ShellDot` from `TurtleDot`, but start it with one remaining hit.
-
-**Check:** after the first hit, a Turtle remains the same object but displays the Shell image; the second hit removes it; a directly created Shell is removed by one hit. Random Turtle movement is not part of this stage.
-
-### Extension 4.3 — AnchorDot
-
-<p align="center">
-  <img src="../assets/dots/anchor.png" alt="Anchor Dot" width="92">
-</p>
-
-An Anchor cannot be connected. It falls under gravity and is collected at the lowest playable position in its column. Students implement only the Anchor asset category and non-connectable property; gravity and collection are supplied.
-
-## 7. Recommended test combinations
-
-Enable only two or three dot types at a time so each effect is easy to observe.
-
-| Learning focus | Dot combination | Companion |
-| --- | --- | --- |
-| Flower starter | Basic + Flower | None |
-| Companion starter | Basic + CompanionDot | Star |
-| Beams | Basic + BeamDot (random direction) | None |
-| Swirl and Companion | Basic + CompanionDot | Eskimo |
-| Wildcard and Companion | Basic + CompanionDot | Buffalo |
-| Beam and Companion | Basic + CompanionDot | Captain |
-| Turtle state change | Basic + Flower + Turtle | None |
-| Anchor | Basic + Horizontal + Anchor | None |
-
-## 8. Completion checklist
-
-- explain why `CompanionDot` and `Companion` are different objects;
-- `FlowerDot` correctly affects orthogonal neighbours;
-- a Companion receives charge only from removed `CompanionDot` objects;
-- StarCompanion creates Stars and Eskimo creates Swirls;
-- BuffaloCompanion creates Wildcards and CaptainCompanion creates random Beams;
-- one BeamDot implements all three direction effects without choosing randomly itself;
-- `SwirlDot` correctly changes surrounding dots;
-- a Turtle changes to its Shell appearance after one hit and disappears after the next;
-- animation, gravity, scoring and the charge bar are not copied into student classes;
-- teacher-selected extensions pass their tests.
+`WildcardDot` and `BuffaloCompanion` remain a complete fourth Dot–Companion
+pair for comparison and independent extension. They are not student TODOs.
 
 ## 9. Run and validate
 
-Keep only one configuration block active in `config.py`. Students may edit
-Dot types and relative weights directly, for example:
-
-```python
-ENABLED_DOT_TYPES = [
-    (BasicDot, 76),
-    (FlowerDot, 12),
-    (TurtleDot, 8),
-    (ShellDot, 4),
-]
-COMPANION_TYPE = None
-```
+Run focused tests after intermediate tasks. After completing a feature group,
+enable only its matching config and launch the GUI:
 
 ```powershell
 python -m unittest discover -s stage2/tests -v
 python stage2/a3.py
 ```
 
-After the automated tests pass, visually inspect images, connections, Companion charge and special effects in the GUI.
+Every feature group must run without a later unfinished TODO. Students should
+be able to explain whether each class creates objects, changes state, or
+calculates removal positions.

@@ -77,6 +77,18 @@ class StageTwoFeatureTest(unittest.TestCase):
         self.assertTrue(all(game.grid.dot_at((1, column)).kind == "blue"
                             for column in range(3)))
 
+    def test_swirl_recolours_without_changing_dot_class(self):
+        game = self.make_game()
+        self.fill(game, "gold")
+        star = StarDot("gold")
+        game.grid.set_dot((0, 0), star)
+        game.grid.set_dot((1, 1), SwirlDot("blue"))
+        game.grid.set_dot((1, 2), BasicDot("blue"))
+        self.connect(game, (1, 1), (1, 2))
+        self.assertTrue(any(game.grid.dot_at(position) is star
+                            for position in game.grid.positions()))
+        self.assertEqual(star.kind, "blue")
+
     def test_star_removes_every_dot_of_its_colour(self):
         game = self.make_game()
         self.fill(game, "gold")
@@ -144,6 +156,27 @@ class StageTwoFeatureTest(unittest.TestCase):
         self.connect(game)
         self.assertEqual(companion.charge, 0)
         self.assertTrue(any(isinstance(game.grid.dot_at(position), SwirlDot)
+                            for position in game.grid.positions()))
+
+    def test_count_companion_dots_checks_only_given_positions(self):
+        game = self.make_game()
+        self.fill(game)
+        game.grid.set_dot((0, 0), CompanionDot("blue"))
+        game.grid.set_dot((0, 1), CompanionDot("blue"))
+        self.assertEqual(game.count_companion_dots({(0, 0), (1, 1)}), 1)
+        self.assertEqual(game.count_companion_dots({(0, 0), (0, 1)}), 2)
+
+    def test_companion_charge_accumulates_before_activation(self):
+        companion = StarCompanion(charge_limit=3, rng=random.Random(2))
+        game = self.make_game(companion)
+        self.fill(game)
+        self.assertEqual(companion.add_charge(2, game.grid), 0)
+        self.assertEqual(companion.charge, 2)
+        self.assertFalse(any(isinstance(game.grid.dot_at(position), StarDot)
+                             for position in game.grid.positions()))
+        self.assertEqual(companion.add_charge(1, game.grid), 1)
+        self.assertEqual(companion.charge, 0)
+        self.assertTrue(any(isinstance(game.grid.dot_at(position), StarDot)
                             for position in game.grid.positions()))
 
     def test_star_companion_creates_star_after_charging(self):

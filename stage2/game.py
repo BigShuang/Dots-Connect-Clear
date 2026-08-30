@@ -9,7 +9,7 @@ from cell import Cell, Position
 from companion import AbstractCompanion, EskimoCompanion
 from config import COMPANION_TYPE, ENABLED_DOT_TYPES
 from dot import (
-    AbstractDot, AnchorDot, BasicDot, CompanionDot, DurableDot, WildcardDot,
+    AbstractDot, AnchorDot, BasicDot, CompanionDot, TurtleDot, WildcardDot,
 )
 from factory import DOT_KINDS, DotFactory
 from util import EventEmitter
@@ -377,7 +377,7 @@ class DotGame(EventEmitter):
             if not self.grid.in_bounds(position) or self.grid.is_blocked(position):
                 continue
             target = self.grid.dot_at(position)
-            if isinstance(target, DurableDot):
+            if isinstance(target, TurtleDot):
                 if target.take_hit():
                     final_positions.add(position)
             elif target is not None:
@@ -385,12 +385,12 @@ class DotGame(EventEmitter):
         activated_positions = final_positions
 
         removed_counts = Counter()
-        companion_dots = 0
         for position in activated_positions:
             dot = self.grid.dot_at(position)
             if dot is not None:
                 removed_counts[dot.kind] += 1
-                companion_dots += isinstance(dot, CompanionDot)
+
+        companion_dots = self.count_companion_dots(activated_positions)
 
         activations = 0
         if self.companion is not None:
@@ -407,6 +407,15 @@ class DotGame(EventEmitter):
             list(activated_positions), kind, loop, removed_counts
         )
         return self._pending_move
+
+    # TODO 2.1：统计最终移除位置中 CompanionDot 的数量。
+    def count_companion_dots(self, positions) -> int:
+        count = 0
+        for position in positions:
+            dot = self.grid.dot_at(position)
+            if isinstance(dot, CompanionDot):
+                count += 1
+        return count
 
     def remove_pending(self) -> None:
         pending = self._require_pending()
@@ -475,12 +484,8 @@ class DotGame(EventEmitter):
         for position in self.grid.positions():
             if not isinstance(self.grid.dot_at(position), AnchorDot):
                 continue
-            row, column = position
-            playable_rows = [
-                candidate for candidate in range(self.grid.rows)
-                if not self.grid.is_blocked((candidate, column))
-            ]
-            if playable_rows and row == playable_rows[-1]:
+            anchor = self.grid.dot_at(position)
+            if anchor.has_landed(self.grid, position):
                 collected.append(position)
         if collected:
             self.grid.remove(collected)

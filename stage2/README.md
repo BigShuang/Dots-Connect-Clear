@@ -67,11 +67,11 @@ their targets but do not recursively activate other special dots. Recursive
 chains, moving balloons/butterflies, and target-selecting companions belong to
 Stage 3.
 
-## Recommended combinations
+## Teaching order
 
-Normal teaching runs should use only two or three Dot types. Open
-`config.py`, keep exactly one configuration block active, and edit the Dot
-classes and relative weights directly:
+Normal teaching runs should use only two or three Dot types. Open `config.py`,
+keep exactly one configuration block active, and edit the Dot classes and
+relative weights directly:
 
 ```python
 ENABLED_DOT_TYPES = [
@@ -81,22 +81,35 @@ ENABLED_DOT_TYPES = [
 COMPANION_TYPE = None
 ```
 
-| Commented example | Dot types | Companion | Recommended use |
-| --- | --- | --- | --- |
-| Starter Flower (active) | Basic, Flower | None | First activation override; easiest |
-| Companion introduction | Basic, CompanionDot | Star | Star is Companion-only |
-| Beam directions | Basic, BeamDot | None | One class with externally selected direction |
-| Colour rules | Basic, Swirl, Wildcard | None | Board mutation and connection rules |
-| Companion extension | Basic, CompanionDot | Eskimo | Companion creates Swirl dots |
-| Wildcard companion | Basic, CompanionDot | Buffalo | Companion creates Wildcards |
-| Beam companion | Basic, CompanionDot | Captain | Companion creates random Beams |
-| Turtle and Shell states | Basic, Flower, Turtle, Shell | None | Compare both starting states |
-| Anchor lifecycle | Basic, BeamDot, Anchor | None | Post-gravity lifecycle hook |
+The student tasks follow this dependency order:
 
-All examples are complete commented code blocks ready to uncomment. Two final
-templates are deliberately left for student-designed Dot and Dot+Companion
-combinations. `game.py` imports the active values and remains focused on game
-rules.
+```text
+Flower
+-> CompanionDot count -> charge -> StarDot -> StarCompanion
+-> SwirlDot -> EskimoCompanion
+-> BeamDot -> CaptainCompanion
+-> Turtle -> Anchor extension
+```
+
+Later tasks may reuse earlier work. An earlier task never requires a later
+unfinished task. Companion foundations come before all concrete Companion
+pairs. Each associated Dot and Companion form one runnable config checkpoint.
+
+| Config block | Dot types | Companion | Learning focus |
+| --- | --- | --- | --- |
+| Starter / TODO 1.1 | Basic, Flower | None | Four-direction coordinate algorithm |
+| TODO 2.1–2.4 | Basic, CompanionDot | Star | Companion foundation plus the first complete Dot–Companion pair |
+| TODO 3.1–3.2 | Basic, CompanionDot | Eskimo | Swirl state mutation and a second concrete Companion |
+| TODO 4.1–4.2 | Basic, CompanionDot | Captain | Beam directions and a composed Companion ability |
+| TODO 5.1 | Basic, Flower, Turtle | None | Two-hit state and appearance transition |
+| Extension 5.2 | Basic, Beam, Anchor | None | Post-gravity lifecycle hook |
+| For Extension | Basic, CompanionDot | Buffalo | Complete Wildcard extension example |
+
+`WildcardDot`, `BuffaloCompanion`, Factory construction, GUI, animation,
+gravity, and event dispatch remain complete `For` examples or support code.
+Two final config templates are left for student-designed Dot and Dot+Companion
+combinations. Detailed instructions are in `STAGE2_TASKS_ZH.md` and
+`STAGE2_TASKS.md`.
 
 Run the model tests with:
 

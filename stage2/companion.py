@@ -15,8 +15,8 @@ class AbstractCompanion(ABC):
         self.charge_limit = charge_limit
         self.charge = 0
 
-    def add_charge(self, amount: int, grid: Any,
-                   excluded: Iterable[Position] = ()) -> int:
+    # TODO 2.2：累加 charge；达到上限时清零并调用子类的 activate。
+    def add_charge(self, amount, grid, excluded=()):
         activations = 0
         for _ in range(max(0, amount)):
             self.charge += 1
@@ -28,20 +28,6 @@ class AbstractCompanion(ABC):
 
     def reset(self) -> None:
         self.charge = 0
-
-    # For 2.3、3.3、3.4、3.5：统一筛选 Companion 可以修改的位置。
-    def available_positions(self, grid: Any,
-                            excluded: Iterable[Position] = ()) -> list[Position]:
-        """返回未被排除的存活可连接 Dot。"""
-        excluded_set = set(excluded)
-        available = []
-        for position in grid.positions():
-            if position in excluded_set:
-                continue
-            dot = grid.dot_at(position)
-            if dot is not None and dot.connectable:
-                available.append(position)
-        return available
 
     @abstractmethod
     def activate(self, grid: Any, excluded: Iterable[Position] = ()) -> None:
@@ -56,10 +42,14 @@ class StarCompanion(AbstractCompanion):
         super().__init__(charge_limit)
         self.rng = rng if rng is not None else random.Random()
 
-    # TODO 2.3：从未被排除的存活可连接 Dot 中随机选择一个，
+    # TODO 2.4：从未被排除的存活可连接 Dot 中随机选择一个，
     # 并通过工厂将它替换成与原 Dot 同色的 StarDot。
-    def activate(self, grid: Any, excluded: Iterable[Position] = ()) -> None:
-        available = self.available_positions(grid, excluded)
+    def activate(self, grid, excluded=()):
+        available = []
+        for position in grid.positions():
+            dot = grid.dot_at(position)
+            if position not in excluded and dot is not None and dot.connectable:
+                available.append(position)
         if available:
             position = self.rng.choice(available)
             current = grid.dot_at(position)
@@ -76,11 +66,17 @@ class EskimoCompanion(AbstractCompanion):
         self.swirl_count = max(0, swirl_count)
         self.rng = rng if rng is not None else random.Random()
 
-    # TODO 3.3：从未被排除的存活可连接 Dot 中随机选择至多 swirl_count 个，
+    # TODO 3.2：从未被排除的存活可连接 Dot 中随机选择至多 swirl_count 个，
     # 并将它们替换成与原 Dot 同色的 SwirlDot。
-    def activate(self, grid: Any, excluded: Iterable[Position] = ()) -> None:
-        available = self.available_positions(grid, excluded)
-        for position in self.rng.sample(available, min(self.swirl_count, len(available))):
+    def activate(self, grid, excluded=()):
+        available = []
+        for position in grid.positions():
+            dot = grid.dot_at(position)
+            if position not in excluded and dot is not None and dot.connectable:
+                available.append(position)
+        number_to_change = min(self.swirl_count, len(available))
+        chosen_positions = self.rng.sample(available, number_to_change)
+        for position in chosen_positions:
             current = grid.dot_at(position)
             grid.set_dot(position, grid.factory.create_dot(
                 kind=current.kind, dot_type=SwirlDot
@@ -96,10 +92,13 @@ class BuffaloCompanion(AbstractCompanion):
         self.wildcard_count = max(0, wildcard_count)
         self.rng = rng if rng is not None else random.Random()
 
-    # TODO 3.4：从未被排除的存活可连接 Dot 中随机选择至多 wildcard_count 个，
-    # 并通过工厂将它们替换成 WildcardDot。
+    # For Extension：Buffalo 是新增 Companion 的完整参考示例。
     def activate(self, grid: Any, excluded: Iterable[Position] = ()) -> None:
-        available = self.available_positions(grid, excluded)
+        available = []
+        for position in grid.positions():
+            dot = grid.dot_at(position)
+            if position not in excluded and dot is not None and dot.connectable:
+                available.append(position)
         for position in self.rng.sample(
                 available, min(self.wildcard_count, len(available))):
             grid.set_dot(position, grid.factory.create_dot(
@@ -118,12 +117,17 @@ class CaptainCompanion(AbstractCompanion):
         self.beam_count = max(0, beam_count)
         self.rng = rng if rng is not None else random.Random()
 
-    # TODO 3.5：从未被排除的存活可连接 Dot 中随机选择至多 beam_count 个，
+    # TODO 4.2：从未被排除的存活可连接 Dot 中随机选择至多 beam_count 个，
     # 在外部随机选择方向，再通过工厂替换成与原 Dot 同色的 BeamDot。
-    def activate(self, grid: Any, excluded: Iterable[Position] = ()) -> None:
-        available = self.available_positions(grid, excluded)
-        for position in self.rng.sample(
-                available, min(self.beam_count, len(available))):
+    def activate(self, grid, excluded=()):
+        available = []
+        for position in grid.positions():
+            dot = grid.dot_at(position)
+            if position not in excluded and dot is not None and dot.connectable:
+                available.append(position)
+        number_to_change = min(self.beam_count, len(available))
+        chosen_positions = self.rng.sample(available, number_to_change)
+        for position in chosen_positions:
             current = grid.dot_at(position)
             direction = self.rng.choice(self.beam_directions)
             grid.set_dot(

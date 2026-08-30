@@ -48,11 +48,11 @@ class DotFactory:
             weights = [weight for _item, weight in self.enabled_dot_types]
             dot_type = self.rng.choices(types, weights=weights, k=1)[0]
 
-        # For Extension 4.1：Wildcard 没有普通颜色，使用自己的默认 kind。
+        # For Extension：Wildcard 没有普通颜色，使用自己的默认 kind。
         if dot_type is WildcardDot:
             return WildcardDot()
 
-        # For 3.1：Beam 的方向由调用者传入，或由 Factory 的 RNG 选择。
+        # For 4.1：Beam 的方向由调用者传入，或由 Factory 的 RNG 选择。
         if dot_type is BeamDot:
             selected_direction = (
                 self.rng.choice(BeamDot.valid_directions)

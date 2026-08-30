@@ -33,10 +33,15 @@ class FlowerDot(AbstractDot):
     # 指定使用花朵素材，即设置素材所在文件夹
     asset_family = "flower"
 
-    # TODO 1.1：返回 FlowerDot 自身及上、下、左、右有效邻居的位置集合。
-    def activate(self, grid: Any, position: Position) -> Set[Position]:
+    # TODO 1.1：计算上、下、左、右四个位置，只加入棋盘范围内的位置。
+    def activate(self, grid, position):
+        row, column = position
         affected = {position}
-        affected.update(grid.neighbours(position))
+        directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+        for row_change, column_change in directions:
+            neighbour = (row + row_change, column + column_change)
+            if grid.in_bounds(neighbour):
+                affected.add(neighbour)
         return affected
 
 class CompanionDot(BasicDot):
@@ -48,28 +53,33 @@ class CompanionDot(BasicDot):
 class StarDot(BasicDot):
     """Remove every dot matching this star's colour."""
     asset_family = "star"
-    # TODO 2.2：返回棋盘上全部与 StarDot 同色的 Dot 位置。
-    def activate(self, grid: Any, position: Position) -> Set[Position]:
-        return set(grid.positions_of_kind(self.kind))
+    # TODO 2.3：遍历棋盘，收集全部与 StarDot 同色的 Dot 位置。
+    def activate(self, grid, position):
+        affected = set()
+        for other_position in grid.positions():
+            dot = grid.dot_at(other_position)
+            if dot is not None and dot.kind == self.kind:
+                affected.add(other_position)
+        return affected
 
 
 class SwirlDot(AbstractDot):
     """Recolour all eight surrounding dots, then remove itself."""
     asset_family = "swirl"
 
-    # TODO 3.2：将周围八格内可连接的 Dot 改成同色 BasicDot，并只返回自身位置。
-    def activate(self, grid: Any, position: Position) -> Set[Position]:
+    # TODO 3.1：遍历周围八格，将有效可连接 Dot 改成与 SwirlDot 相同的颜色。
+    def activate(self, grid, position):
         row, column = position
-        for other_position in grid.positions():
-            other_row, other_column = other_position
-            if other_position == position:
-                continue
-            if abs(other_row - row) <= 1 and abs(other_column - column) <= 1:
-                current = grid.dot_at(other_position)
-                if current is not None and current.connectable:
-                    grid.set_dot(other_position, grid.factory.create_dot(
-                        kind=self.kind, dot_type=BasicDot
-                    ))
+        for row_change in (-1, 0, 1):
+            for column_change in (-1, 0, 1):
+                if row_change == 0 and column_change == 0:
+                    continue
+                other_position = (row + row_change, column + column_change)
+                if not grid.in_bounds(other_position):
+                    continue
+                dot = grid.dot_at(other_position)
+                if dot is not None and dot.connectable:
+                    dot.kind = self.kind
         return {position}
 
 
@@ -79,20 +89,17 @@ class BeamDot(AbstractDot):
     asset_family = "beam"
     valid_directions = ("horizontal", "vertical", "cross")
 
-    # TODO 3.1：保存外部传入的合法方向，并根据方向返回整行、整列或两者并集。
-    def __init__(self, kind: str, direction: str) -> None:
+    # TODO 4.1：保存方向，并根据方向返回整行、整列或两者并集。
+    def __init__(self, kind, direction):
         super().__init__(kind)
         if direction not in self.valid_directions:
             raise ValueError("Unknown beam direction: " + direction)
         self.direction = direction
+        self.asset_variant = direction
 
-    @property
-    def asset_variant(self) -> str:
-        return self.direction
-
-    def activate(self, grid: Any, position: Position) -> Set[Position]:
+    def activate(self, grid, position):
         row, column = position
-        affected: Set[Position] = set()
+        affected = set()
         if self.direction in {"horizontal", "cross"}:
             for item in range(grid.columns):
                 affected.add((row, item))
@@ -107,7 +114,7 @@ class WildcardDot(AbstractDot):
 
     asset_family = "wildcard"
 
-    # TODO Extension 4.1：使用默认 kind "wildcard"，并允许连接任意可连接 Dot。
+    # For Extension：Wildcard 的构造和连接规则已经提供。
     def __init__(self, kind: str = "wildcard") -> None:
         super().__init__(kind)
 
@@ -115,40 +122,29 @@ class WildcardDot(AbstractDot):
         return self.connectable and other.connectable
 
 
-class DurableDot(AbstractDot):
-    """A non-connectable obstacle which keeps mutable hit state."""
-
-    # TODO Extension 4.2：设置为不可连接，保存剩余耐久，并在命中时判断是否移除。
-    connectable = False
-    max_hits = 2
-
-    def __init__(self, kind: str, hits_remaining: Optional[int] = None) -> None:
-        super().__init__(kind)
-        if hits_remaining is None:
-            self.hits_remaining = self.max_hits
-        else:
-            self.hits_remaining = hits_remaining
-
-    def take_hit(self) -> bool:
-        self.hits_remaining -= 1
-        return self.hits_remaining <= 0
-
-
-class TurtleDot(DurableDot):
+class TurtleDot(AbstractDot):
     """Hide in its shell after one range hit, then disappear after another."""
 
-    # TODO Extension 4.2：根据剩余耐久动态返回 turtle 或 shell 素材类别。
-    @property
-    def asset_family(self) -> str:
-        if self.hits_remaining >= self.max_hits:
-            return "turtle"
-        return "shell"
+    connectable = False
+
+    # TODO 5.1：保存两点耐久；第一次命中变成 shell，第二次命中后返回 True。
+    def __init__(self, kind, hits_remaining=2):
+        super().__init__(kind)
+        self.hits_remaining = hits_remaining
+        self.asset_family = "turtle" if hits_remaining == 2 else "shell"
+
+    def take_hit(self):
+        self.hits_remaining -= 1
+        if self.hits_remaining == 1:
+            self.asset_family = "shell"
+            return False
+        return True
 
 
 class ShellDot(TurtleDot):
     """A turtle which starts hidden and therefore needs only one more hit."""
 
-    # TODO Extension 4.2：让直接生成的 ShellDot 从 1 点剩余耐久开始。
+    # For 5.1：ShellDot 复用 TurtleDot，但从一点剩余耐久开始。
     def __init__(self, kind: str) -> None:
         super().__init__(kind, hits_remaining=1)
 
@@ -156,6 +152,13 @@ class ShellDot(TurtleDot):
 class AnchorDot(AbstractDot):
     """A non-connectable objective collected after falling to a segment bottom."""
 
-    # TODO Extension 4.3：设置 AnchorDot 的素材类别，并令其不可直接连接。
     asset_family = "anchor"
     connectable = False
+
+    # TODO Extension 5.2：判断 Anchor 下方是否还存在可玩的棋盘位置。
+    def has_landed(self, grid, position):
+        row, column = position
+        for next_row in range(row + 1, grid.rows):
+            if not grid.is_blocked((next_row, column)):
+                return False
+        return True

@@ -33,9 +33,9 @@ COMPANION_TYPE = None
 # 同时取消注释 ENABLED_DOT_TYPES 和 COMPANION_TYPE。
 # ============================================================================
 
-# --- Companion 入门：Star ----------------------------------------------------
-# CompanionDot 为 StarCompanion 充能。随机补充中有意不包含 StarDot，
-# 因此棋盘上的每个 Star 都能明确看出是由 Companion 生成的。
+# --- TODO 2.1–2.4：Companion 基础与 Star 第一组能力 --------------------------
+# 依次完成 CompanionDot 统计、charge、StarDot 和 StarCompanion。
+# Star 只由充满的 StarCompanion 生成；整组完成后再启用本配置。
 # ENABLED_DOT_TYPES = [
 #     (BasicDot, 82),
 #     (CompanionDot, 18),
@@ -43,28 +43,8 @@ COMPANION_TYPE = None
 # COMPANION_TYPE = StarCompanion
 
 
-# --- Beam 方向 ---------------------------------------------------------------
-# Factory 使用同一个 BeamDot 类，并从 horizontal、vertical、cross 中随机选择方向。
-# ENABLED_DOT_TYPES = [
-#     (BasicDot, 80),
-#     (BeamDot, 20),
-# ]
-# COMPANION_TYPE = None
-
-
-# --- 颜色规则：Swirl 与 Wildcard --------------------------------------------
-# Swirl 改变附近的颜色；Wildcard 改变连接规则。
-# ENABLED_DOT_TYPES = [
-#     (BasicDot, 80),
-#     (SwirlDot, 10),
-#     (WildcardDot, 10),
-# ]
-# COMPANION_TYPE = None
-
-
-# --- Companion 拓展：Eskimo 与 Swirl ----------------------------------------
-# 随机补充中不包含 SwirlDot；它只会在被消除的 CompanionDot 为
-# EskimoCompanion 充满能量后出现。
+# --- TODO 3.1–3.2：SwirlDot 与 EskimoCompanion -------------------------------
+# Swirl 只由充满的 EskimoCompanion 生成；完成整组后启用。
 # ENABLED_DOT_TYPES = [
 #     (BasicDot, 82),
 #     (CompanionDot, 18),
@@ -72,19 +52,8 @@ COMPANION_TYPE = None
 # COMPANION_TYPE = EskimoCompanion
 
 
-# --- Companion 拓展：Buffalo 与 Wildcard ------------------------------------
-# 随机补充中不包含 WildcardDot；BuffaloCompanion 充满后会将若干存活 Dot
-# 转换成 WildcardDot。
-# ENABLED_DOT_TYPES = [
-#     (BasicDot, 82),
-#     (CompanionDot, 18),
-# ]
-# COMPANION_TYPE = BuffaloCompanion
-
-
-# --- Companion 拓展：Captain 与 Beam ----------------------------------------
-# 随机补充中不包含 BeamDot；CaptainCompanion 充满后会将若干存活 Dot
-# 转换成随机方向、颜色不变的 BeamDot。
+# --- TODO 4.1–4.2：BeamDot 与 CaptainCompanion -------------------------------
+# Beam 只由充满的 CaptainCompanion 生成；方向由 Factory 随机选择。
 # ENABLED_DOT_TYPES = [
 #     (BasicDot, 82),
 #     (CompanionDot, 18),
@@ -92,19 +61,17 @@ COMPANION_TYPE = None
 # COMPANION_TYPE = CaptainCompanion
 
 
-# --- Turtle 与 Shell 状态 ----------------------------------------------------
-# Turtle 需要受到两次范围效果命中：第一次会变为 Shell 外观，第二次会被消除。
-# Shell 从隐藏状态开始，只需命中一次。Flower 便于触发和观察这两种状态变化。
+# --- TODO 5.1：Turtle 状态 ---------------------------------------------------
+# Flower 方便连续命中 Turtle：第一次变成 Shell，第二次消失。
 # ENABLED_DOT_TYPES = [
-#     (BasicDot, 76),
+#     (BasicDot, 80),
 #     (FlowerDot, 12),
 #     (TurtleDot, 8),
-#     (ShellDot, 4),
 # ]
 # COMPANION_TYPE = None
 
 
-# --- Anchor 生命周期 ---------------------------------------------------------
+# --- Extension 5.2：Anchor 生命周期 -----------------------------------------
 # Beam 会腾出空间；Anchor 到达所在列最低的可玩位置后会被收集。
 # ENABLED_DOT_TYPES = [
 #     (BasicDot, 82),
@@ -112,6 +79,15 @@ COMPANION_TYPE = None
 #     (AnchorDot, 8),
 # ]
 # COMPANION_TYPE = None
+
+
+# --- For Extension：Wildcard 与 Buffalo ------------------------------------
+# 这是新增 Dot/Companion 组合的完整参考示例，不属于学生 TODO。
+# ENABLED_DOT_TYPES = [
+#     (BasicDot, 82),
+#     (CompanionDot, 18),
+# ]
+# COMPANION_TYPE = BuffaloCompanion
 
 
 # ============================================================================
