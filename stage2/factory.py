@@ -4,17 +4,15 @@ import random
 from typing import Optional, Sequence, Tuple, Type
 
 from dot import (
-    AbstractDot, AnchorDot, BasicDot, CompanionDot, CrossBeamDot, FlowerDot,
-    HorizontalBeamDot, ShellDot, StarDot, SwirlDot, TurtleDot, VerticalBeamDot,
-    WildcardDot,
+    AbstractDot, AnchorDot, BasicDot, BeamDot, CompanionDot, FlowerDot,
+    ShellDot, StarDot, SwirlDot, TurtleDot, WildcardDot,
 )
 
 DOT_KINDS = ("coral", "blue", "purple", "gold")
 DotRegistration = Tuple[Type[AbstractDot], int]
 DEFAULT_DOT_TYPES: Tuple[DotRegistration, ...] = (
     (BasicDot, 72), (CompanionDot, 10), (FlowerDot, 5), (SwirlDot, 4),
-    (HorizontalBeamDot, 3), (VerticalBeamDot, 3), (CrossBeamDot, 1),
-    (WildcardDot, 2),
+    (BeamDot, 7), (WildcardDot, 2),
 )
 
 
@@ -41,27 +39,28 @@ class DotFactory:
             raise ValueError("Unknown dot kind: " + selected)
         return selected
 
-    def create_dot(self, kind: Optional[str] = None) -> AbstractDot:
-        types = [dot_type for dot_type, _weight in self.enabled_dot_types]
-        weights = [weight for _dot_type, weight in self.enabled_dot_types]
-        dot_type = self.rng.choices(types, weights=weights, k=1)[0]
-        return WildcardDot() if dot_type is WildcardDot else dot_type(self._kind(kind))
+    def create_dot(self, kind: Optional[str] = None,
+                   dot_type: Optional[Type[AbstractDot]] = None,
+                   direction: Optional[str] = None) -> AbstractDot:
+        # 未指定类型时，按 config 中的相对权重选择一个 Dot 类。
+        if dot_type is None:
+            types = [item for item, _weight in self.enabled_dot_types]
+            weights = [weight for _item, weight in self.enabled_dot_types]
+            dot_type = self.rng.choices(types, weights=weights, k=1)[0]
 
-    def create_basic(self, kind: Optional[str] = None) -> BasicDot:
-        return BasicDot(self._kind(kind))
+        # For Extension 4.1：Wildcard 没有普通颜色，使用自己的默认 kind。
+        if dot_type is WildcardDot:
+            return WildcardDot()
 
-    def create_special(self, dot_type: Type[AbstractDot],
-                       kind: Optional[str] = None) -> AbstractDot:
-        return WildcardDot() if dot_type is WildcardDot else dot_type(self._kind(kind))
+        # For 3.1：Beam 的方向由调用者传入，或由 Factory 的 RNG 选择。
+        if dot_type is BeamDot:
+            selected_direction = (
+                self.rng.choice(BeamDot.valid_directions)
+                if direction is None else direction
+            )
+            return BeamDot(self._kind(kind), selected_direction)
 
-    def create_companion(self, kind: Optional[str] = None) -> CompanionDot:
-        return CompanionDot(self._kind(kind))
-
-    def create_swirl(self, kind: Optional[str] = None) -> SwirlDot:
-        return SwirlDot(self._kind(kind))
-
-    def create_star(self, kind: Optional[str] = None) -> StarDot:
-        return StarDot(self._kind(kind))
+        return dot_type(self._kind(kind))
 
 
 CHALLENGE_DOT_TYPES = (TurtleDot, ShellDot, AnchorDot)

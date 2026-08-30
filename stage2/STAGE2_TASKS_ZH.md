@@ -2,6 +2,9 @@
 
 ## 1. Stage 2 简介
 
+Stage 2 使用中文注释的 `config.py`。可以在该文件中选择 Dot 类型、
+相对权重与 Companion；请只启用一个配置块。
+
 Stage 1 的棋盘只有普通彩色 Dot。Stage 2 将加入两类扩展：
 
 - **特殊 Dot**：位于棋盘中，通过不同的 `activate` 实现范围消除、改色或特殊连接；
@@ -80,6 +83,9 @@ class MySpecialDot(AbstractDot):
 
 ### 2.3 可以使用的接口
 
+代码标记约定：`TODO X` 表示学生需要完成任务 X；`For X` 表示该代码已经实现，
+用于支持任务 X，不需要学生补写。
+
 ```python
 grid.rows
 grid.columns
@@ -87,10 +93,15 @@ grid.neighbours(position)
 grid.positions()
 grid.dot_at(position)
 grid.set_dot(position, dot)
-grid.factory.create_basic(kind)
-grid.factory.create_swirl(kind)
-grid.factory.create_star(kind)
+grid.factory.create_dot()
+grid.factory.create_dot(kind=kind, dot_type=BasicDot)
+grid.factory.create_dot(kind=kind, dot_type=SwirlDot)
+grid.factory.create_dot(kind=kind, dot_type=StarDot)
 ```
+
+Factory 只提供一个 `create_dot` 创建入口。按权重选择类型和普通 Dot 构造已经
+实现；Beam 与 Wildcard 的特殊分支分别标记为 `For 3.1` 和
+`For Extension 4.1`。不需要为每种 Dot 新增 `create_xxx` 方法。
 
 ## 3. 入门示例一——FlowerDot
 
@@ -182,11 +193,12 @@ class StarCompanion(AbstractCompanion):
         # TODO 2.3
         # 1. 找出没有在 excluded 中的存活、可连接 Dot。
         # 2. 随机选择一个位置。
-        # 3. 使用 grid.factory.create_star 创建同色 StarDot。
+        # 3. 使用 grid.factory.create_dot 创建同色 StarDot。
         pass
 ```
 
 `excluded` 是本回合即将消除的位置，伙伴不能选择这些位置。
+候选位置筛选使用 `available_positions`，学生重点实现选取和替换。
 
 **检查标准：**
 
@@ -202,7 +214,7 @@ class StarCompanion(AbstractCompanion):
 
 这一部分不再提供完整类框架，学生根据效果说明独立写出类代码。
 
-### TODO 3.1——BeamDot 家族
+### TODO 3.1——单一 BeamDot 与方向
 
 <p align="center">
   <img src="../assets/dots/beam/horizontal/blue.png" alt="Horizontal Beam" width="82">
@@ -212,17 +224,21 @@ class StarCompanion(AbstractCompanion):
   <img src="../assets/dots/beam/cross/purple.png" alt="Cross Beam" width="82">
 </p>
 
-先实现共同父类 `BeamDot`：
+只实现一个 `BeamDot` 类，方向作为对象状态由外部传入：
 
 - `asset_family = "beam"`；
-- 保存 `direction`；
-- 通过只读属性 `asset_variant` 返回方向。
+- 构造函数接收 `kind` 和 `direction`；
+- `direction` 只允许 `"horizontal"`、`"vertical"` 或 `"cross"`；
+- 非法方向应抛出 `ValueError`；
+- 通过只读属性 `asset_variant` 返回方向；
+- 水平方向返回所在整行，垂直方向返回所在整列，交叉方向返回两者并集。
 
-再实现三个子类：
+`BeamDot` 本身不随机选择方向。随机补充由 `DotFactory.create_dot` 使用
+Factory 的 RNG 选择方向；需要明确方向的调用者可以直接传入。这样 Beam 对象
+保持确定性，相同随机种子的 Factory 也能生成可重复的结果。
 
-- `HorizontalBeamDot`：返回所在整行；
-- `VerticalBeamDot`：返回所在整列；
-- `CrossBeamDot`：合并整行和整列。
+Factory 中的 Beam 分支标记为 `For 3.1`；学生只实现 `TODO 3.1` 标记的
+`BeamDot` 方向保存、校验与激活范围。
 
 **检查标准：** 在 8×8 棋盘中，水平和垂直 Beam 各影响 8 个位置，Cross Beam 影响 15 个不同位置。
 
@@ -253,12 +269,37 @@ class StarCompanion(AbstractCompanion):
 
 实现 `EskimoCompanion.activate`：
 
-- 找出不在 `excluded` 中的存活、可连接 Dot；
+- 使用 `available_positions` 取得候选位置；
 - 随机选择最多 `swirl_count` 个位置；
 - 将它们分别替换成与原 Dot 同色的 `SwirlDot`；
 - 候选数量不足时，只转换现有候选，不产生错误。
 
 这个组合展示同一个 `CompanionDot` 可以给不同伙伴充能，而不同伙伴可以产生不同特殊 Dot。
+
+### TODO 3.4——BuffaloCompanion
+
+实现 `BuffaloCompanion.activate`：
+
+- 使用 `available_positions` 取得候选位置；
+- 随机选择最多 `wildcard_count` 个位置；
+- 使用 `grid.factory.create_dot(dot_type=WildcardDot)` 将它们替换成 `WildcardDot`；
+- 候选数量不足时只转换现有候选，不产生错误。
+
+`WildcardDot` 没有固定颜色，因此不需要保留被替换 Dot 的颜色。本回合即将消除的
+位置必须保持在 `excluded` 中，不能被 Companion 选中。
+
+### TODO 3.5——CaptainCompanion
+
+实现 `CaptainCompanion.activate`：
+
+- 使用 `available_positions` 取得候选位置；
+- 随机选择最多 `beam_count` 个位置；
+- 为每个位置随机选择 `"horizontal"`、`"vertical"` 或 `"cross"`；
+- 使用统一的 `grid.factory.create_dot`，传入 `BeamDot`、颜色和方向；
+- 候选数量不足时只转换现有候选，不产生错误。
+
+Buffalo 与 Captain 都只替换仍在棋盘上的 Dot，不直接删除位置，也不修改动画、
+计分、重力或统一结算流程。
 
 ## 6. 高难度拓展
 
@@ -309,8 +350,10 @@ Anchor 不可直接连接，会随重力下降，到达所在列最低可用位�
 | --- | --- | --- |
 | Flower 入门 | Basic + Flower | 无 |
 | Companion 入门 | Basic + CompanionDot | Star |
-| Beam | Basic + Horizontal + Vertical | 无 |
+| Beam | Basic + BeamDot（随机方向） | 无 |
 | Swirl 与伙伴 | Basic + CompanionDot | Eskimo |
+| Wildcard 与伙伴 | Basic + CompanionDot | Buffalo |
+| Beam 与伙伴 | Basic + CompanionDot | Captain |
 | Turtle 状态变化 | Basic + Flower + Turtle | 无 |
 | Anchor | Basic + Horizontal + Anchor | 无 |
 
@@ -320,7 +363,8 @@ Anchor 不可直接连接，会随重力下降，到达所在列最低可用位�
 - `FlowerDot` 能正确影响正交邻居；
 - Companion 只从实际消除的 `CompanionDot` 获得充能；
 - StarCompanion 生成 Star，Eskimo 生成 Swirl；
-- 三种 Beam 的影响方向正确；
+- BuffaloCompanion 生成 Wildcard，CaptainCompanion 生成随机方向的 Beam；
+- 单一 BeamDot 的三种方向效果正确，且 BeamDot 内部不产生随机方向；
 - `SwirlDot` 正确修改周围 Dot；
 - Turtle 第一次命中切换为 Shell 外观，第二次命中后消失；
 - 没有把动画、重力、计分或充能进度条复制到学生类中；
@@ -328,7 +372,8 @@ Anchor 不可直接连接，会随重力下降，到达所在列最低可用位�
 
 ## 9. 运行与验证
 
-在 `config.py` 中只保留一个配置块处于启用状态。学生可以直接修改 Dot 类型和相对权重，例如：
+在 `config.py` 中只保留一个配置块处于启用状态。
+学生可以直接修改 Dot 类型和相对权重，例如：
 
 ```python
 ENABLED_DOT_TYPES = [

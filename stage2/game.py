@@ -9,7 +9,7 @@ from cell import Cell, Position
 from companion import AbstractCompanion, EskimoCompanion
 from config import COMPANION_TYPE, ENABLED_DOT_TYPES
 from dot import (
-    AbstractDot, AnchorDot, CompanionDot, DurableDot, WildcardDot,
+    AbstractDot, AnchorDot, BasicDot, CompanionDot, DurableDot, WildcardDot,
 )
 from factory import DOT_KINDS, DotFactory
 from util import EventEmitter
@@ -169,8 +169,12 @@ class DotGrid:
             for second in self.neighbours(first):
                 if second not in self.blocked_positions:
                     kind = self.factory.rng.choice(self.factory.kinds)
-                    self.set_dot(first, self.factory.create_basic(kind))
-                    self.set_dot(second, self.factory.create_basic(kind))
+                    self.set_dot(first, self.factory.create_dot(
+                        kind=kind, dot_type=BasicDot
+                    ))
+                    self.set_dot(second, self.factory.create_dot(
+                        kind=kind, dot_type=BasicDot
+                    ))
                     return
 
     def kinds(self) -> List[List[Optional[str]]]:

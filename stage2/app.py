@@ -40,8 +40,7 @@ class DotsApp(tk.Frame):
         menu_bar.add_cascade(label="File", menu=file_menu)
         self.master.configure(menu=menu_bar)
 
-    # TODO-CANDIDATE (Stage 1 — callbacks): this method is a compact exercise
-    # in connecting view events and model events to controller methods.
+    # 连接 View 事件与 Model/Controller 方法。
     def _bind_events(self) -> None:
         self.grid_view.on_press = self.start_connection
         self.grid_view.on_drag = self.continue_connection
@@ -94,8 +93,7 @@ class DotsApp(tk.Frame):
     def _companion_changed(self, _charge: int, _activations: int) -> None:
         self.refresh_status()
 
-    # TODO-CANDIDATE (Stage 1 — model/view coordination): students could
-    # update all status widgets by using only the model's public attributes.
+    # 使用 Model 的公开状态更新全部界面组件。
     def refresh_status(self) -> None:
         self.info_panel.set_score(self.game.score)
         self.info_panel.set_moves_remaining(self.game.moves_remaining)

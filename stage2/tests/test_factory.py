@@ -32,9 +32,11 @@ class DotFactoryTest(unittest.TestCase):
         factory = DotFactory(enabled_dot_types=[(FlowerDot, 1)])
         self.assertIsInstance(factory.create_dot("blue"), FlowerDot)
 
-    def test_star_has_explicit_factory_method_but_is_not_randomly_registered(self):
+    def test_explicit_type_can_create_unregistered_star(self):
         factory = DotFactory()
-        self.assertIsInstance(factory.create_star("blue"), StarDot)
+        self.assertIsInstance(
+            factory.create_dot(kind="blue", dot_type=StarDot), StarDot
+        )
         self.assertFalse(any(dot_type is StarDot
                              for dot_type, _weight in DEFAULT_DOT_TYPES))
         for kind in (*DOT_KINDS, "green"):

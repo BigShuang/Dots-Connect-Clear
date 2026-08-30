@@ -7,10 +7,12 @@ STAGE2 = Path(__file__).resolve().parents[1]
 if str(STAGE2) not in sys.path:
     sys.path.insert(0, str(STAGE2))
 
-from companion import EskimoCompanion, GardenerCompanion, StarCompanion
+from companion import (
+    BuffaloCompanion, CaptainCompanion, EskimoCompanion, StarCompanion,
+)
 from dot import (
-    AnchorDot, BasicDot, CompanionDot, CrossBeamDot, FlowerDot,
-    HorizontalBeamDot, ShellDot, StarDot, SwirlDot, TurtleDot, WildcardDot,
+    AnchorDot, BasicDot, BeamDot, CompanionDot, FlowerDot, ShellDot, StarDot,
+    SwirlDot, TurtleDot, WildcardDot,
 )
 from factory import DotFactory
 from game import DotGame
@@ -41,14 +43,29 @@ class StageTwoFeatureTest(unittest.TestCase):
         result = self.connect(game, (1, 1), (1, 2))
         self.assertEqual(result.removed, 5)
 
-    def test_horizontal_and_cross_beams(self):
+    def test_all_beam_directions(self):
         game = self.make_game()
         self.fill(game)
-        game.grid.set_dot((1, 1), HorizontalBeamDot("blue"))
+        game.grid.set_dot((1, 1), BeamDot("blue", "horizontal"))
         self.assertEqual(self.connect(game, (1, 1), (1, 2)).removed, 3)
         self.fill(game)
-        game.grid.set_dot((1, 1), CrossBeamDot("blue"))
+        game.grid.set_dot((1, 1), BeamDot("blue", "vertical"))
+        self.assertEqual(self.connect(game, (1, 1), (1, 2)).removed, 4)
+        self.fill(game)
+        game.grid.set_dot((1, 1), BeamDot("blue", "cross"))
         self.assertEqual(self.connect(game, (1, 1), (1, 2)).removed, 5)
+
+    def test_factory_creates_seeded_beam_direction(self):
+        first = DotFactory(rng=random.Random(7), dot_class=BasicDot)
+        second = DotFactory(rng=random.Random(7), dot_class=BasicDot)
+        first_beam = first.create_dot(kind="blue", dot_type=BeamDot)
+        second_beam = second.create_dot(kind="blue", dot_type=BeamDot)
+        self.assertEqual(first_beam.direction, second_beam.direction)
+        self.assertIn(first_beam.direction, BeamDot.valid_directions)
+
+    def test_beam_rejects_unknown_direction(self):
+        with self.assertRaises(ValueError):
+            BeamDot("blue", "diagonal")
 
     def test_swirl_recolours_eight_neighbours(self):
         game = self.make_game()
@@ -129,16 +146,6 @@ class StageTwoFeatureTest(unittest.TestCase):
         self.assertTrue(any(isinstance(game.grid.dot_at(position), SwirlDot)
                             for position in game.grid.positions()))
 
-    def test_second_companion_uses_same_interface(self):
-        companion = GardenerCompanion(charge_limit=2, rng=random.Random(2))
-        game = self.make_game(companion)
-        self.fill(game)
-        game.grid.set_dot((0, 0), CompanionDot("blue"))
-        game.grid.set_dot((0, 1), CompanionDot("blue"))
-        self.connect(game)
-        self.assertTrue(any(isinstance(game.grid.dot_at(position), FlowerDot)
-                            for position in game.grid.positions()))
-
     def test_star_companion_creates_star_after_charging(self):
         companion = StarCompanion(charge_limit=2, rng=random.Random(2))
         game = self.make_game(companion)
@@ -150,6 +157,35 @@ class StageTwoFeatureTest(unittest.TestCase):
                  if isinstance(game.grid.dot_at(position), StarDot)]
         self.assertEqual(len(stars), 1)
         self.assertEqual(stars[0].kind, "blue")
+
+    def test_buffalo_companion_creates_wildcards_after_charging(self):
+        companion = BuffaloCompanion(charge_limit=2, wildcard_count=2,
+                                     rng=random.Random(2))
+        game = self.make_game(companion)
+        self.fill(game)
+        game.grid.set_dot((0, 0), CompanionDot("blue"))
+        game.grid.set_dot((0, 1), CompanionDot("blue"))
+        self.connect(game)
+        wildcards = [game.grid.dot_at(position)
+                     for position in game.grid.positions()
+                     if isinstance(game.grid.dot_at(position), WildcardDot)]
+        self.assertEqual(len(wildcards), 2)
+
+    def test_captain_companion_creates_beams_after_charging(self):
+        companion = CaptainCompanion(charge_limit=2, beam_count=3,
+                                     rng=random.Random(2))
+        game = self.make_game(companion)
+        self.fill(game, "purple")
+        game.grid.set_dot((0, 0), CompanionDot("blue"))
+        game.grid.set_dot((0, 1), CompanionDot("blue"))
+        self.connect(game)
+        beams = [game.grid.dot_at(position)
+                 for position in game.grid.positions()
+                 if isinstance(game.grid.dot_at(position), BeamDot)]
+        self.assertEqual(len(beams), 3)
+        self.assertTrue(all(beam.kind == "purple" for beam in beams))
+        self.assertTrue(all(beam.direction in BeamDot.valid_directions
+                            for beam in beams))
 
 if __name__ == "__main__":
     unittest.main()

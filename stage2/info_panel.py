@@ -97,8 +97,7 @@ class InfoPanel(tk.Frame):
         self.objectives_view = ObjectivesView(right)
         self.objectives_view.pack(fill=tk.X, padx=(10, 0))
 
-    # TODO-CANDIDATE (Stage 1 — widget state): students could implement the
-    # three setters below after the labels have been supplied.
+    # 以下 setter 将 Model 状态同步到界面标签。
     def set_score(self, score: int) -> None:
         self._score_label.configure(text=str(score))
 

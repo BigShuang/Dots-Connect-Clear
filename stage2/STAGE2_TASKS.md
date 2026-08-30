@@ -80,6 +80,9 @@ Base charging, events and the charge bar are supplied. Students focus on what a 
 
 ### 2.3 Available interfaces
 
+Code-marker convention: `TODO X` means students implement task X; `For X`
+means the code is already implemented to support task X.
+
 ```python
 grid.rows
 grid.columns
@@ -87,10 +90,16 @@ grid.neighbours(position)
 grid.positions()
 grid.dot_at(position)
 grid.set_dot(position, dot)
-grid.factory.create_basic(kind)
-grid.factory.create_swirl(kind)
-grid.factory.create_star(kind)
+grid.factory.create_dot()
+grid.factory.create_dot(kind=kind, dot_type=BasicDot)
+grid.factory.create_dot(kind=kind, dot_type=SwirlDot)
+grid.factory.create_dot(kind=kind, dot_type=StarDot)
 ```
+
+The Factory exposes one `create_dot` entry point. Weighted selection and
+ordinary construction are complete. The special Beam and Wildcard branches are
+marked `For 3.1` and `For Extension 4.1`; no separate `create_xxx` methods are
+needed.
 
 ## 3. Starter example one — FlowerDot
 
@@ -182,11 +191,13 @@ class StarCompanion(AbstractCompanion):
         # TODO 2.3
         # 1. Find surviving, connectable dots outside excluded.
         # 2. Randomly select one position.
-        # 3. Use grid.factory.create_star to create a same-colour StarDot.
+        # 3. Use grid.factory.create_dot to create a same-colour StarDot.
         pass
 ```
 
 `excluded` contains positions that will be removed in the current move, so the Companion must not select them.
+Candidate filtering is supplied by `available_positions`; students focus on
+selection and replacement.
 
 **Check:**
 
@@ -202,7 +213,7 @@ class StarCompanion(AbstractCompanion):
 
 Complete class scaffolds are no longer supplied in this section. Students write the classes from the effect descriptions.
 
-### TODO 3.1 — BeamDot family
+### TODO 3.1 — One BeamDot with direction state
 
 <p align="center">
   <img src="../assets/dots/beam/horizontal/blue.png" alt="Horizontal Beam" width="82">
@@ -212,17 +223,23 @@ Complete class scaffolds are no longer supplied in this section. Students write 
   <img src="../assets/dots/beam/cross/purple.png" alt="Cross Beam" width="82">
 </p>
 
-First create the common `BeamDot` parent:
+Implement one `BeamDot` class and pass its direction in as object state:
 
 - use `asset_family = "beam"`;
-- store a `direction`;
-- expose that direction through a read-only `asset_variant` property.
+- accept `kind` and `direction` in the constructor;
+- allow only `"horizontal"`, `"vertical"`, or `"cross"`;
+- raise `ValueError` for an invalid direction;
+- expose the direction through a read-only `asset_variant` property;
+- return the entire row for horizontal, the entire column for vertical, and
+  their union for cross.
 
-Then create three subclasses:
+`BeamDot` must not choose a random direction internally. Random refill uses
+the supplied `DotFactory.create_dot` and its RNG; callers that need a specific
+direction pass it explicitly. This keeps each Beam deterministic and preserves
+repeatable seeded Factory results.
 
-- `HorizontalBeamDot` returns its entire row;
-- `VerticalBeamDot` returns its entire column;
-- `CrossBeamDot` combines its entire row and column.
+The Beam branch in Factory is marked `For 3.1`. Students implement only the
+`BeamDot` direction state, validation, and activation range marked `TODO 3.1`.
 
 **Check:** on an 8×8 board, the horizontal and vertical Beams affect eight positions each, while the Cross Beam affects 15 different positions.
 
@@ -253,12 +270,39 @@ When a `SwirlDot` activates:
 
 Implement `EskimoCompanion.activate`:
 
-- find surviving, connectable dots outside `excluded`;
+- use the supplied `available_positions` helper to obtain candidates;
 - randomly select at most `swirl_count` positions;
 - replace each with a `SwirlDot` matching the original dot's colour;
 - if too few candidates exist, convert only the available candidates without raising an error.
 
 This combination demonstrates that the same `CompanionDot` can charge interchangeable Companions, while each Companion creates a different special dot.
+
+### TODO 3.4 — BuffaloCompanion
+
+Implement `BuffaloCompanion.activate`:
+
+- use the supplied `available_positions` helper to obtain candidates;
+- randomly select at most `wildcard_count` positions;
+- replace them with `WildcardDot` objects using
+  `grid.factory.create_dot(dot_type=WildcardDot)`;
+- if too few candidates exist, convert only those available.
+
+A `WildcardDot` has no fixed colour, so it does not preserve the colour of the
+dot it replaces. Positions awaiting removal must remain excluded.
+
+### TODO 3.5 — CaptainCompanion
+
+Implement `CaptainCompanion.activate`:
+
+- use the supplied `available_positions` helper to obtain candidates;
+- randomly select at most `beam_count` positions;
+- choose `"horizontal"`, `"vertical"`, or `"cross"` randomly for each position;
+- use the shared `grid.factory.create_dot` with `BeamDot`, the colour, and the
+  selected direction;
+- if too few candidates exist, convert only those available.
+
+Buffalo and Captain replace only surviving dots. They do not directly remove
+positions or modify animation, scoring, gravity, or the shared resolution flow.
 
 ## 6. Advanced extensions
 
@@ -309,8 +353,10 @@ Enable only two or three dot types at a time so each effect is easy to observe.
 | --- | --- | --- |
 | Flower starter | Basic + Flower | None |
 | Companion starter | Basic + CompanionDot | Star |
-| Beams | Basic + Horizontal + Vertical | None |
+| Beams | Basic + BeamDot (random direction) | None |
 | Swirl and Companion | Basic + CompanionDot | Eskimo |
+| Wildcard and Companion | Basic + CompanionDot | Buffalo |
+| Beam and Companion | Basic + CompanionDot | Captain |
 | Turtle state change | Basic + Flower + Turtle | None |
 | Anchor | Basic + Horizontal + Anchor | None |
 
@@ -320,7 +366,8 @@ Enable only two or three dot types at a time so each effect is easy to observe.
 - `FlowerDot` correctly affects orthogonal neighbours;
 - a Companion receives charge only from removed `CompanionDot` objects;
 - StarCompanion creates Stars and Eskimo creates Swirls;
-- all three Beam directions have the correct effect;
+- BuffaloCompanion creates Wildcards and CaptainCompanion creates random Beams;
+- one BeamDot implements all three direction effects without choosing randomly itself;
 - `SwirlDot` correctly changes surrounding dots;
 - a Turtle changes to its Shell appearance after one hit and disappears after the next;
 - animation, gravity, scoring and the charge bar are not copied into student classes;
@@ -328,8 +375,8 @@ Enable only two or three dot types at a time so each effect is easy to observe.
 
 ## 9. Run and validate
 
-Keep only one configuration block active in `config.py`. Students may edit Dot
-types and relative weights directly, for example:
+Keep only one configuration block active in `config.py`. Students may edit
+Dot types and relative weights directly, for example:
 
 ```python
 ENABLED_DOT_TYPES = [

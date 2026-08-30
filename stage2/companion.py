@@ -5,7 +5,7 @@ import random
 from typing import Any, Iterable, Optional
 
 from cell import Position
-from dot import FlowerDot
+from dot import BeamDot, StarDot, SwirlDot, WildcardDot
 
 
 class AbstractCompanion(ABC):
@@ -29,49 +29,23 @@ class AbstractCompanion(ABC):
     def reset(self) -> None:
         self.charge = 0
 
+    # For 2.3、3.3、3.4、3.5：统一筛选 Companion 可以修改的位置。
+    def available_positions(self, grid: Any,
+                            excluded: Iterable[Position] = ()) -> list[Position]:
+        """返回未被排除的存活可连接 Dot。"""
+        excluded_set = set(excluded)
+        available = []
+        for position in grid.positions():
+            if position in excluded_set:
+                continue
+            dot = grid.dot_at(position)
+            if dot is not None and dot.connectable:
+                available.append(position)
+        return available
+
     @abstractmethod
     def activate(self, grid: Any, excluded: Iterable[Position] = ()) -> None:
         pass
-
-
-class EskimoCompanion(AbstractCompanion):
-    """Turn several surviving dots into SwirlDots when fully charged."""
-
-    def __init__(self, charge_limit: int = 6, swirl_count: int = 3,
-                 rng: Optional[random.Random] = None) -> None:
-        super().__init__(charge_limit)
-        self.swirl_count = max(0, swirl_count)
-        self.rng = rng if rng is not None else random.Random()
-
-    def activate(self, grid: Any, excluded: Iterable[Position] = ()) -> None:
-        excluded_set = set(excluded)
-        available = [position for position in grid.positions()
-                     if position not in excluded_set
-                     and (dot := grid.dot_at(position)) is not None
-                     and dot.connectable]
-        for position in self.rng.sample(available, min(self.swirl_count, len(available))):
-            current = grid.dot_at(position)
-            grid.set_dot(position, grid.factory.create_swirl(current.kind))
-
-
-class GardenerCompanion(AbstractCompanion):
-    """A second interchangeable companion which plants one FlowerDot."""
-
-    def __init__(self, charge_limit: int = 6,
-                 rng: Optional[random.Random] = None) -> None:
-        super().__init__(charge_limit)
-        self.rng = rng if rng is not None else random.Random()
-
-    def activate(self, grid: Any, excluded: Iterable[Position] = ()) -> None:
-        excluded_set = set(excluded)
-        available = [position for position in grid.positions()
-                     if position not in excluded_set
-                     and (dot := grid.dot_at(position)) is not None
-                     and dot.connectable]
-        if available:
-            position = self.rng.choice(available)
-            current = grid.dot_at(position)
-            grid.set_dot(position, FlowerDot(current.kind))
 
 
 class StarCompanion(AbstractCompanion):
@@ -82,13 +56,81 @@ class StarCompanion(AbstractCompanion):
         super().__init__(charge_limit)
         self.rng = rng if rng is not None else random.Random()
 
+    # TODO 2.3：从未被排除的存活可连接 Dot 中随机选择一个，
+    # 并通过工厂将它替换成与原 Dot 同色的 StarDot。
     def activate(self, grid: Any, excluded: Iterable[Position] = ()) -> None:
-        excluded_set = set(excluded)
-        available = [position for position in grid.positions()
-                     if position not in excluded_set
-                     and (dot := grid.dot_at(position)) is not None
-                     and dot.connectable]
+        available = self.available_positions(grid, excluded)
         if available:
             position = self.rng.choice(available)
             current = grid.dot_at(position)
-            grid.set_dot(position, grid.factory.create_star(current.kind))
+            grid.set_dot(position, grid.factory.create_dot(
+                kind=current.kind, dot_type=StarDot
+            ))
+
+class EskimoCompanion(AbstractCompanion):
+    """Turn several surviving dots into SwirlDots when fully charged."""
+
+    def __init__(self, charge_limit: int = 6, swirl_count: int = 3,
+                 rng: Optional[random.Random] = None) -> None:
+        super().__init__(charge_limit)
+        self.swirl_count = max(0, swirl_count)
+        self.rng = rng if rng is not None else random.Random()
+
+    # TODO 3.3：从未被排除的存活可连接 Dot 中随机选择至多 swirl_count 个，
+    # 并将它们替换成与原 Dot 同色的 SwirlDot。
+    def activate(self, grid: Any, excluded: Iterable[Position] = ()) -> None:
+        available = self.available_positions(grid, excluded)
+        for position in self.rng.sample(available, min(self.swirl_count, len(available))):
+            current = grid.dot_at(position)
+            grid.set_dot(position, grid.factory.create_dot(
+                kind=current.kind, dot_type=SwirlDot
+            ))
+
+
+class BuffaloCompanion(AbstractCompanion):
+    """充能完成后，将若干存活 Dot 转换成 WildcardDot。"""
+
+    def __init__(self, charge_limit: int = 6, wildcard_count: int = 3,
+                 rng: Optional[random.Random] = None) -> None:
+        super().__init__(charge_limit)
+        self.wildcard_count = max(0, wildcard_count)
+        self.rng = rng if rng is not None else random.Random()
+
+    # TODO 3.4：从未被排除的存活可连接 Dot 中随机选择至多 wildcard_count 个，
+    # 并通过工厂将它们替换成 WildcardDot。
+    def activate(self, grid: Any, excluded: Iterable[Position] = ()) -> None:
+        available = self.available_positions(grid, excluded)
+        for position in self.rng.sample(
+                available, min(self.wildcard_count, len(available))):
+            grid.set_dot(position, grid.factory.create_dot(
+                dot_type=WildcardDot
+            ))
+
+
+class CaptainCompanion(AbstractCompanion):
+    """充能完成后，将若干存活 Dot 转换成随机方向的 BeamDot。"""
+
+    beam_directions = BeamDot.valid_directions
+
+    def __init__(self, charge_limit: int = 6, beam_count: int = 3,
+                 rng: Optional[random.Random] = None) -> None:
+        super().__init__(charge_limit)
+        self.beam_count = max(0, beam_count)
+        self.rng = rng if rng is not None else random.Random()
+
+    # TODO 3.5：从未被排除的存活可连接 Dot 中随机选择至多 beam_count 个，
+    # 在外部随机选择方向，再通过工厂替换成与原 Dot 同色的 BeamDot。
+    def activate(self, grid: Any, excluded: Iterable[Position] = ()) -> None:
+        available = self.available_positions(grid, excluded)
+        for position in self.rng.sample(
+                available, min(self.beam_count, len(available))):
+            current = grid.dot_at(position)
+            direction = self.rng.choice(self.beam_directions)
+            grid.set_dot(
+                position,
+                grid.factory.create_dot(
+                    kind=current.kind,
+                    dot_type=BeamDot,
+                    direction=direction,
+                ),
+            )
